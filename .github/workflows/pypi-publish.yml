@@ -1,0 +1,33 @@
+name: Publish to PyPI
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package + test tools
+        run: |
+          pip install build
+          pip install -e .
+          pip install pytest pytest-asyncio pytest-timeout
+      - name: Run the test suite before publishing
+        run: python -m pytest tests/ -q --timeout=180
+      - name: Build package
+        run: python -m build
+      - name: Moat guard (inspect built wheel + sdist)
+        run: python scripts/check_moat_boundary.py
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: true

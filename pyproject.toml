@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "awrepl"
+version = "0.1.0"
+description = "A REPL an agent can actually use — state that survives between turns."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+awrepl = "awrepl.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Aitherium/awrepl"
+Documentation = "https://github.com/Aitherium/awrepl#readme"
+Repository = "https://github.com/Aitherium/awrepl.git"
+Issues = "https://github.com/Aitherium/awrepl/issues"
+
+[tool.setuptools]
+packages = ["awrepl"]
+license-files = ["LICENSE"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+# The monorepo quality gate runs `ruff --isolated` from the REPO ROOT, where
+# first-party detection cannot see this directory, so it files `awrepl` as
+# third-party. Rooted here, ruff would instead detect it as first-party and
+# demand the OPPOSITE import layout -- two invocations giving mutually
+# exclusive verdicts on the same file, each `--fix` undoing the other.
+# Measured: that is exactly what happened, twice, before this line existed.
+# Empty `src` disables path-based detection so the local run agrees with the
+# gate that actually blocks a merge.
+src = []
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501", "E402", "E741"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
