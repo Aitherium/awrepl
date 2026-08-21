@@ -1,0 +1,952 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>awrepl — Aither World repl</title>
+    <meta name="description" content="A REPL an agent can actually use — state that survives between turns.">
+    <style>
+/*5a73de3ee744c09b*/
+/* ═══════════════════════════════════════════════════════════════════════════
+   AITHERIUM WEB DESIGN LANGUAGE — canonical static-page stylesheet
+   @element-tokens v2
+
+   Source of truth for every public-facing STATIC page (GitHub Pages landing
+   sites, generated docs). Tokens are extracted from the live aitherium.com
+   design system (the dark-glass OKLch theme) so static pages match the estate
+   instead of inventing a look. NOTE: this file is INLINED VERBATIM into public
+   pages, so it must name no internal path — publish_gate scans for them.
+
+   Consumed by tools/gen_public_pages.py, which INLINES this file verbatim into
+   each generated page and fails loudly if it is missing. Edit HERE, then
+   regenerate; never restyle a generated docs/index.html by hand.
+
+   Class contract (the generator's template depends on these):
+     .wrap nav .brand .eyebrow .lede .cta .btn .btn-p .btn-s
+     .code .grid .card .stats .stat .note footer .el h1 .g
+   v2 adds:
+     --accent (+ -a04/-a10/-a30/-a50/-glow) .... per-experience accent, set per repo
+     .uni .uni-stage .uni-canvas .uni-nodes .orb .orb.here ... the universe strip
+     .exp .exp .glyph ......................... the experience badge
+     .panel .panel-hd .field .field-row .chips .chip
+     .rows .row-item .empty .kv .bar-cmp .steps  live artifacts
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+*,*::before,*::after{box-sizing:border-box}
+
+:root{
+  /* ─── core surfaces (dark glass, OKLch — verbatim from Veil) ─── */
+  --background:oklch(0.07 0.015 250);
+  --surface:oklch(0.12 0.02 250);
+  --surface-2:oklch(0.15 0.025 250);
+  --foreground:oklch(0.95 0 0);
+  --tx-2:oklch(0.72 0.02 250);
+  --tx-muted:oklch(0.55 0.02 250);
+  --border:oklch(0.25 0.03 250);
+
+  /* ─── accents ─── */
+  --primary:oklch(0.50 0.16 250);
+  --cyan:oklch(0.80 0.13 195);
+  --accent-warm:oklch(0.75 0.16 45);
+  --lavender:oklch(0.78 0.12 290);
+  --mint:oklch(0.82 0.12 165);
+  --coral:oklch(0.78 0.14 25);
+  --ok:var(--mint);
+  --warn:oklch(0.80 0.15 85);
+
+  /* ─── per-experience accent ───────────────────────────────────────────
+     Each public repo is a named EXPERIENCE with its own accent, the same way
+     every sovereign agent on aitherium.com has one (agent-theme.ts: demiurge
+     is "The Forge", #f97316). The generator overrides this whole block per
+     repo; everything below themes off it, so a repo's identity is one edit
+     rather than a forked stylesheet. Defaults are the cyan house colour, so
+     an un-themed page still looks correct. */
+  --accent:oklch(0.80 0.13 195);
+  --accent-a04:oklch(0.80 0.13 195 / 4%);
+  --accent-a10:oklch(0.80 0.13 195 / 10%);
+  --accent-a30:oklch(0.80 0.13 195 / 30%);
+  --accent-a50:oklch(0.80 0.13 195 / 50%);
+  --accent-glow:oklch(0.80 0.13 195 / 18%);
+
+  /* ─── signature gradients (cyan → blue → purple) ─── */
+  --creation:linear-gradient(135deg,oklch(0.75 0.14 195),oklch(0.60 0.16 250),oklch(0.65 0.16 290));
+  --cta-gradient:linear-gradient(to right,oklch(0.55 0.15 200),oklch(0.45 0.18 240));
+
+  /* ─── type ─── */
+  --font-display:'Cinzel',Georgia,serif;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  /* ─── shape & layout ─── */
+  --radius:14px;
+  --radius-xl:0.75rem;
+  --maxw:1080px;
+}
+
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;color-scheme:dark}
+body{
+  margin:0;background:var(--background);color:var(--foreground);
+  font-family:var(--font);font-weight:400;line-height:1.65;letter-spacing:-0.011em;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+
+/* ─── ambient field: cyan grid + blurred glow orbs (aitherium.com hero) ─── */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(var(--accent-a04) 1px,transparent 1px),
+    linear-gradient(90deg,var(--accent-a04) 1px,transparent 1px);
+  background-size:80px 80px;
+  -webkit-mask-image:radial-gradient(ellipse 60% 40% at 50% 12%,black 20%,transparent 70%);
+  mask-image:radial-gradient(ellipse 60% 40% at 50% 12%,black 20%,transparent 70%);
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(900px 600px at 50% -10%,oklch(0.55 0.15 200 / 6%),transparent 60%),
+    radial-gradient(400px 400px at 18% 45%,oklch(0.50 0.18 280 / 4%),transparent 65%),
+    radial-gradient(300px 300px at 88% 70%,oklch(0.45 0.18 240 / 4%),transparent 65%);
+}
+
+.wrap{position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;padding:0 24px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* ─── nav: sticky glass panel ─── */
+nav{
+  position:sticky;top:0;z-index:20;
+  background:oklch(0.06 0.015 250 / 65%);
+  backdrop-filter:blur(24px) saturate(180%);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border-bottom:1px solid oklch(1 0 0 / 8%);
+}
+nav .wrap{display:flex;align-items:center;gap:18px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:500;color:var(--foreground)}
+.brand:hover{text-decoration:none}
+.brand .ai{
+  font-family:var(--font-display);font-weight:700;font-size:1.35rem;line-height:1;
+  background:var(--creation);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+nav .sp{flex:1}
+nav a.nl{color:var(--tx-2);font-size:.9rem;font-weight:500}
+nav a.nl:hover{color:var(--accent);text-decoration:none}
+@media(max-width:640px){nav a.nl.hide-sm{display:none}}
+
+/* ─── hero ─── */
+header{padding:88px 0 64px;position:relative}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);
+  font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);
+  border:1px solid var(--accent-a30);border-radius:999px;padding:5px 12px;
+  margin-bottom:22px;
+  background:oklch(0.12 0.02 250 / 60%);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.eyebrow .dot{
+  width:6px;height:6px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);
+  animation:pulse-dot 2.4s ease-in-out infinite;
+}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.45}}
+h1{
+  font-family:var(--font-display);
+  font-size:clamp(2.4rem,6vw,4rem);font-weight:700;line-height:1.08;
+  letter-spacing:-0.01em;margin:0 0 18px;
+}
+h1 .g{
+  background:var(--creation);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.lede{font-size:clamp(1.03rem,2.1vw,1.22rem);color:var(--tx-2);max-width:62ch;margin:0 0 30px;line-height:1.8}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:34px}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;padding:12px 22px;
+  border-radius:var(--radius-xl);font-weight:600;font-size:.94rem;
+  border:1px solid transparent;cursor:pointer;
+  transition:all .25s cubic-bezier(0.16,1,0.3,1);
+}
+.btn:hover{text-decoration:none;transform:translateY(-2px)}
+.btn-p{
+  background:var(--cta-gradient);color:#fff;
+  box-shadow:0 8px 24px oklch(0.55 0.15 200 / 25%);
+}
+.btn-p:hover{box-shadow:0 8px 32px oklch(0.55 0.15 200 / 40%)}
+.btn-s{
+  background:oklch(1 0 0 / 5%);color:var(--foreground);
+  border-color:oklch(1 0 0 / 8%);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.btn-s:hover{background:oklch(1 0 0 / 10%);border-color:var(--accent-a50);color:var(--accent)}
+
+/* ─── code blocks: glass with gradient hairline ─── */
+.code{
+  position:relative;
+  background:oklch(0.06 0.015 250 / 65%);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid oklch(1 0 0 / 8%);
+  border-radius:var(--radius);overflow:hidden;
+  box-shadow:0 8px 32px oklch(0 0 0 / 40%),inset 0 1px 0 oklch(1 0 0 / 5%);
+}
+.code::before{content:"";position:absolute;inset:0 0 auto;height:1px;background:var(--creation)}
+.code .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid oklch(1 0 0 / 8%)}
+.code .bar > span:not(.t){width:9px;height:9px;flex:none;border-radius:50%;background:var(--border)}
+.code .bar .t{
+  line-height:1;margin-left:6px;font-family:var(--mono);font-size:.73rem;
+  color:var(--tx-muted);letter-spacing:.04em;
+}
+.code pre{
+  margin:0;padding:16px 18px;overflow-x:auto;font-family:var(--mono);
+  font-size:.845rem;line-height:1.75;color:var(--foreground);
+}
+.code .c{color:var(--tx-muted)}
+.code .k{color:var(--accent)}
+.code .s{color:var(--mint)}
+.copy{
+  position:absolute;top:8px;right:10px;background:transparent;
+  border:1px solid oklch(1 0 0 / 12%);color:var(--tx-muted);border-radius:7px;
+  padding:4px 9px;font-size:.7rem;cursor:pointer;font-family:var(--mono);transition:.16s;
+}
+.copy:hover{color:var(--accent);border-color:var(--accent-a50)}
+
+/* ─── sections ─── */
+section{padding:64px 0;border-top:1px solid oklch(1 0 0 / 6%)}
+h2{
+  font-family:var(--font-display);
+  font-size:clamp(1.55rem,3vw,2.1rem);font-weight:700;letter-spacing:-0.01em;
+  margin:0 0 10px;
+}
+.sub{color:var(--tx-2);margin:0 0 30px;max-width:64ch;line-height:1.8}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(258px,1fr))}
+
+/* ─── cards: glass surface, glow on hover ─── */
+.card{
+  background:oklch(0.12 0.02 250 / 60%);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid oklch(0.40 0.05 250 / 20%);
+  border-radius:var(--radius);padding:22px;position:relative;overflow:hidden;
+  box-shadow:0 8px 32px oklch(0 0 0 / 30%),inset 0 1px 0 oklch(1 0 0 / 5%);
+  transition:all .25s cubic-bezier(0.16,1,0.3,1);
+}
+.card:hover{
+  transform:translateY(-2px);
+  border-color:var(--accent-a30);
+  box-shadow:0 8px 32px oklch(0 0 0 / 40%),0 0 20px var(--accent-glow),
+    inset 0 1px 0 oklch(1 0 0 / 8%);
+}
+.card h3{margin:0 0 8px;font-size:1.03rem;font-weight:600;letter-spacing:-0.012em}
+.card p{margin:0;color:var(--tx-2);font-size:.92rem;line-height:1.7}
+.card .ico{
+  font-family:var(--mono);font-size:.7rem;color:var(--accent);letter-spacing:.14em;
+  text-transform:uppercase;display:block;margin-bottom:10px;
+}
+
+/* ─── stat tiles ─── */
+.stats{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:30px}
+.stat{
+  background:oklch(0.12 0.02 250 / 60%);
+  backdrop-filter:blur(12px) saturate(150%);
+  -webkit-backdrop-filter:blur(12px) saturate(150%);
+  border:1px solid oklch(1 0 0 / 8%);
+  border-radius:var(--radius);padding:18px;text-align:center;
+}
+.stat .v{
+  font-family:var(--mono);font-size:1.55rem;font-weight:700;display:block;line-height:1.2;
+  background:var(--creation);-webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.stat .l{font-size:.76rem;color:var(--tx-muted);text-transform:uppercase;letter-spacing:.1em;margin-top:5px;display:block}
+
+/* ─── callout note ─── */
+.note{
+  background:oklch(0.12 0.02 250 / 60%);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border:1px solid oklch(1 0 0 / 8%);border-left:3px solid var(--warn);
+  border-radius:10px;padding:16px 18px;color:var(--tx-2);font-size:.92rem;line-height:1.7;
+}
+.note strong{color:var(--foreground)}
+
+/* ─── footer ─── */
+footer{border-top:1px solid oklch(1 0 0 / 6%);padding:34px 0 46px;color:var(--tx-muted);font-size:.86rem}
+footer .row{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+footer .sp{flex:1}
+footer a{color:var(--tx-2)}
+.el{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  width:56px;height:56px;border-radius:10px;
+  border:1px solid oklch(1 0 0 / 8%);
+  background:oklch(0.12 0.02 250 / 60%);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  position:relative;overflow:hidden;
+}
+.el::before{content:"";position:absolute;inset:0 0 auto;height:1px;background:var(--creation)}
+.el .n{font-family:var(--mono);font-size:.56rem;color:var(--tx-muted);line-height:1}
+.el .s{
+  font-family:var(--font-display);font-weight:700;font-size:1.2rem;line-height:1.2;
+  background:var(--creation);-webkit-background-clip:text;background-clip:text;color:transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE UNIVERSE STRIP
+   The four public repos are organs of one system, and until now nothing on
+   the pages said so — the nav linked Features / Quick start / GitHub and
+   stopped. This renders the constellation on EVERY page: the current repo lit
+   and centred, its siblings dimmed but reachable. The links are real anchors
+   in the HTML, so it works with JS off; universe.js only adds the drifting
+   flight paths behind them.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.uni{position:relative;padding:38px 0 30px;border-top:1px solid oklch(1 0 0 / 6%)}
+.uni h2{font-size:clamp(1.15rem,2.2vw,1.4rem);margin-bottom:4px}
+.uni .sub{margin-bottom:22px;font-size:.92rem}
+/* The top band is deliberate empty room: the flight paths arc UP out of the orb
+   row into it. Without it the curves are drawn underneath the cards and are
+   invisible except in the 12px gutters, which looked like the canvas was dead. */
+.uni-stage{position:relative;min-height:190px;padding-top:52px}
+.uni-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.uni-nodes{
+  position:relative;z-index:1;display:grid;gap:12px;
+  grid-template-columns:repeat(auto-fit,minmax(146px,1fr));
+}
+.orb{
+  position:relative;
+  display:flex;flex-direction:column;gap:6px;padding:15px 14px;
+  border-radius:var(--radius);text-align:left;
+  background:oklch(0.12 0.02 250 / 55%);
+  backdrop-filter:blur(14px) saturate(160%);
+  -webkit-backdrop-filter:blur(14px) saturate(160%);
+  border:1px solid oklch(1 0 0 / 7%);
+  transition:all .28s cubic-bezier(0.16,1,0.3,1);
+}
+.orb:hover{
+  text-decoration:none;transform:translateY(-3px);
+  border-color:var(--accent-a30);
+  box-shadow:0 10px 30px oklch(0 0 0 / 40%),0 0 22px var(--accent-glow);
+}
+.orb .k{
+  font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--tx-muted);display:flex;align-items:center;gap:7px;
+}
+.orb .k::before{
+  content:"";width:7px;height:7px;border-radius:50%;flex:none;
+  background:var(--orb,var(--tx-muted));box-shadow:0 0 9px var(--orb,transparent);
+}
+.orb .n{font-weight:600;font-size:.96rem;color:var(--foreground);letter-spacing:-0.01em}
+.orb .d{font-size:.79rem;color:var(--tx-muted);line-height:1.5}
+/* you are here */
+.orb.here{
+  border-color:var(--accent-a50);
+  background:oklch(0.14 0.03 250 / 70%);
+  box-shadow:0 0 0 1px var(--accent-a30),0 10px 34px var(--accent-glow);
+}
+.orb.here .n{color:var(--accent)}
+/* A pill on the top edge, not an ::after inside .k — inline it wrapped onto
+   three lines and made the lit card taller than every sibling. */
+.orb.here::after{
+  content:"you are here";position:absolute;top:-8px;left:14px;
+  font-family:var(--mono);font-size:.56rem;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--background);background:var(--accent);
+  padding:3px 8px;border-radius:999px;white-space:nowrap;
+}
+
+/* ─── experience badge: this repo's name in the estate ─── */
+/* display:flex, not inline-flex — inline it sat on the same line as .eyebrow
+   and the two badges read as one run-on chip. */
+.exp{
+  display:flex;align-items:center;gap:10px;margin-bottom:16px;
+  font-family:var(--font-display);font-size:.9rem;letter-spacing:.04em;
+  color:var(--tx-2);
+}
+.exp .glyph{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:9px;font-size:.95rem;
+  background:var(--accent-a10);border:1px solid var(--accent-a30);
+}
+.exp b{color:var(--accent);font-weight:700}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIVE ARTIFACTS
+   Each repo's page carries one real, interactive thing built from the payload
+   being published — a browsable catalogue, a composer, a calculator — instead
+   of six paragraphs of feature copy telling you to go and run `ls`.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.panel{
+  background:oklch(0.10 0.02 250 / 60%);
+  backdrop-filter:blur(20px) saturate(170%);
+  -webkit-backdrop-filter:blur(20px) saturate(170%);
+  border:1px solid oklch(1 0 0 / 8%);
+  border-radius:var(--radius);overflow:hidden;
+  box-shadow:0 8px 32px oklch(0 0 0 / 30%);
+}
+.panel-hd{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:13px 16px;border-bottom:1px solid oklch(1 0 0 / 8%);
+  background:oklch(0.08 0.02 250 / 50%);
+}
+.panel-hd .t{font-family:var(--mono);font-size:.74rem;color:var(--tx-muted);letter-spacing:.06em}
+.panel-hd .sp{flex:1}
+.count{font-family:var(--mono);font-size:.74rem;color:var(--accent)}
+
+.field{
+  width:100%;padding:10px 13px;border-radius:9px;font-family:var(--font);font-size:.9rem;
+  background:oklch(0.06 0.015 250 / 70%);color:var(--foreground);
+  border:1px solid oklch(1 0 0 / 10%);
+}
+.field::placeholder{color:var(--tx-muted)}
+.field:focus{outline:none;border-color:var(--accent-a50);box-shadow:0 0 0 3px var(--accent-a10)}
+.field-row{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));padding:16px}
+.field-row label{display:block;font-size:.74rem;color:var(--tx-muted);margin-bottom:6px;
+  text-transform:uppercase;letter-spacing:.09em;font-family:var(--mono)}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px;padding:12px 16px;border-bottom:1px solid oklch(1 0 0 / 6%)}
+.chip{
+  font-family:var(--mono);font-size:.71rem;padding:5px 11px;border-radius:999px;cursor:pointer;
+  background:oklch(1 0 0 / 4%);border:1px solid oklch(1 0 0 / 9%);color:var(--tx-2);
+  transition:.18s;
+}
+.chip:hover{border-color:var(--accent-a30);color:var(--accent)}
+.chip[aria-pressed="true"]{background:var(--accent-a10);border-color:var(--accent-a50);color:var(--accent)}
+
+.rows{max-height:432px;overflow-y:auto}
+.row-item{
+  display:block;width:100%;text-align:left;padding:13px 16px;cursor:pointer;
+  border:0;border-bottom:1px solid oklch(1 0 0 / 5%);
+  background:transparent;color:inherit;font-family:var(--font);transition:.16s;
+}
+.row-item:hover{background:var(--accent-a10);text-decoration:none}
+.row-item .n{display:block;font-weight:600;font-size:.9rem;color:var(--foreground)}
+.row-item .d{display:block;font-size:.8rem;color:var(--tx-muted);line-height:1.55;margin-top:3px}
+.row-item .tag{
+  font-family:var(--mono);font-size:.65rem;color:var(--accent);
+  letter-spacing:.1em;text-transform:uppercase;
+}
+.empty{padding:34px 16px;text-align:center;color:var(--tx-muted);font-size:.88rem}
+
+/* key→value readout (calculator results, composed manifests) */
+.kv{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));padding:16px}
+.kv .cell{padding:13px;border-radius:10px;background:oklch(1 0 0 / 3%);border:1px solid oklch(1 0 0 / 7%)}
+.kv .cell .l{display:block;font-size:.68rem;color:var(--tx-muted);text-transform:uppercase;
+  letter-spacing:.1em;font-family:var(--mono)}
+.kv .cell .v{display:block;font-family:var(--mono);font-size:1.22rem;font-weight:700;margin-top:5px;
+  background:var(--creation);-webkit-background-clip:text;background-clip:text;color:transparent}
+.kv .cell.flat .v{background:none;color:var(--foreground);-webkit-text-fill-color:currentColor}
+
+/* compression / ratio bar */
+.bar-cmp{padding:0 16px 16px}
+.bar-cmp .track{height:9px;border-radius:99px;background:oklch(1 0 0 / 6%);overflow:hidden;margin-bottom:7px}
+.bar-cmp .fill{height:100%;background:var(--creation);border-radius:99px;transition:width .35s ease}
+.bar-cmp .lbl{display:flex;justify-content:space-between;font-family:var(--mono);
+  font-size:.71rem;color:var(--tx-muted)}
+
+/* ordered step sequence (playbooks) */
+.steps{list-style:none;margin:0;padding:16px;display:flex;flex-direction:column;gap:0}
+.steps li{position:relative;padding:0 0 16px 26px;font-size:.87rem;color:var(--tx-2)}
+.steps li:last-child{padding-bottom:0}
+.steps li::before{
+  content:"";position:absolute;left:0;top:5px;width:9px;height:9px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 8px var(--accent-glow);
+}
+.steps li:not(:last-child)::after{
+  content:"";position:absolute;left:4px;top:16px;bottom:2px;width:1px;background:oklch(1 0 0 / 12%);
+}
+.steps li b{color:var(--foreground);font-weight:600}
+
+/* ─── motion ─── */
+@keyframes fade-in-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+header .wrap>*{animation:fade-in-up .6s ease-out both}
+header .wrap>*:nth-child(2){animation-delay:.05s}
+header .wrap>*:nth-child(3){animation-delay:.1s}
+header .wrap>*:nth-child(4){animation-delay:.15s}
+header .wrap>*:nth-child(5){animation-delay:.2s}
+header .wrap>*:nth-child(6){animation-delay:.25s}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ─── scrollbar ─── */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:oklch(0.08 0.015 250)}
+::-webkit-scrollbar-thumb{background:oklch(0.25 0.03 250);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:oklch(0.35 0.05 260)}
+
+    </style>
+</head>
+<body>
+<nav>
+    <div class="wrap">
+        <a href="https://aitherium.github.io/" class="brand">
+            <span class="ai">Ai</span> Ecosystem
+        </a>
+        <div class="sp"></div>
+        <a href="https://github.com/Aitherium/awrepl" class="nl hide-sm">GitHub</a>
+    </div>
+</nav>
+
+<div class="wrap">
+    <header>
+        <div class="exp">
+            <span class="glyph">◆</span>
+            Aither World <b>awrepl</b>
+        </div>
+        <h1><span class="g">awrepl</span></h1>
+        <p class="lede">A REPL an agent can actually use — state that survives between turns.</p>
+        <div class="cta">
+            <a href="https://github.com/Aitherium/awrepl" class="btn btn-p">View on GitHub →</a>
+            <a href="https://github.com/Aitherium/awrepl#readme" class="btn btn-s">Installation</a>
+        </div>
+    </header>
+
+    <section>
+        <h2>What It Does</h2>
+        <div class="grid">
+            <div class="card">
+                <span class="ico">Instead of trusting</span>
+                <p>what the agent believes the value is</p>
+            </div>
+            <div class="card">
+                <span class="ico">You check</span>
+                <p>the value, printed from the live session</p>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>Overview</h2>
+        <div class="code">
+            <div class="bar">
+                <span></span><span></span><span></span>
+                <span class="t">awrepl/README</span>
+            </div>
+            <pre>An agent given one-shot shell commands rebuilds its whole world on every call, so it guesses instead of looking — and in a transcript a guess is indistinguishable from a reading. Every variable it wanted is gone the moment the command exits, which is why agents describe state rather than inspect it.</pre>
+        </div>
+    </section>
+
+    <section>
+        <h1>awrepl</h1>
+<p><strong>A REPL an agent can actually use — state that survives between turns.</strong></p>
+
+<pre><code>```bash
+pip install awrepl
+</code></pre>
+
+
+<pre><code>```python
+from awrepl import ReplSession
+
+session = ReplSession(&quot;agent-1&quot;)
+result = session.execute(&quot;items = [1, 2, 3]&quot;)
+result = session.execute(&quot;print(len(items))&quot;)
+print(result.stdout)  # &quot;3&quot;
+session.close()
+</code></pre>
+
+
+<pre><code>```bash
+awrepl run &quot;print(&#x27;hello&#x27;)&quot;
+awrepl serve                    # Interactive session
+awrepl --session myagent run &quot;x = 42&quot;
+awrepl --self-test              # Verify the contract
+</code></pre>
+<hr />
+<h2>The problem it exists for</h2>
+<p>An agent given one-shot shell commands rebuilds its whole world on every call, so it guesses instead of looks. Every variable it wanted is gone the moment the command exits. This REPL keeps state.</p>
+<p><strong>You ask the live object, not the agent's memory.</strong></p>
+
+<pre><code>```python
+# Turn 1
+session.execute(&quot;data = load_file(&#x27;config.json&#x27;)&quot;)
+
+# Turn 2 (later, different agent instance)
+session.execute(&quot;print(data[&#x27;server&#x27;])&quot;)  # data is STILL there
+</code></pre>
+<hr />
+<h2>⚠️ This is NOT a sandbox</h2>
+<p><strong>Critical: awrepl executes arbitrary code with the privileges of the process that started it.</strong></p>
+<p>It does not protect against:
+- <strong>Filesystem access</strong> — code can read/write/delete files
+- <strong>Network access</strong> — code can make HTTP requests, connect to services
+- <strong>Subprocess execution</strong> — code can launch processes and scripts
+- <strong>Resource exhaustion</strong> — timeouts can be circumvented (see below)
+- <strong>Memory/disk consumption</strong> — unbounded allocations are possible</p>
+<p><strong>Real isolation requires a container (Docker/Podman) or VM.</strong> awrepl is a session manager, not a sandbox. Shipping something that <em>looks</em> like a sandbox and is not would be actively dangerous — so this is stated plainly.</p>
+<p>Use awrepl only:
+- In trusted environments (your own machine, internal tools)
+- When running code you wrote or thoroughly reviewed
+- Behind proper auth and network boundaries if exposed as a service
+- With resource limits imposed at the OS/container level if needed</p>
+<p>If you need to run untrusted code, use a container or virtual machine. Do not rely on awrepl alone.</p>
+<hr />
+<h2>API</h2>
+<h3>ReplSession</h3>
+<p>A persistent Python interpreter backed by a subprocess worker.</p>
+
+<pre><code>```python
+from awrepl import ReplSession, ExecResult
+
+session = ReplSession(
+    session_id=&quot;my-session&quot;,
+    timeout_ms=30000,           # per-call timeout
+    max_output_bytes=65536,     # output cap before truncation
+)
+
+# Execute code
+result: ExecResult = session.execute(&quot;x = [1, 2, 3]&quot;)
+</code></pre>
+<p><strong>ExecResult</strong> fields:
+- <code>stdout</code> (str): Captured stdout
+- <code>stderr</code> (str): Captured stderr<br />
+- <code>value</code> (str|None): <code>repr()</code> of the last expression, if any
+- <code>exception</code> (str|None): Error message if execution failed
+- <code>traceback</code> (str): Full traceback on exception
+- <code>duration_ms</code> (float): Wall-clock time for execution
+- <code>truncated</code> (bool): Output was truncated due to size limit
+- <code>truncated_bytes</code> (int): How many bytes were dropped</p>
+<p><strong>Methods:</strong></p>
+
+<pre><code>```python
+# Execute code in the persistent namespace
+result = session.execute(&quot;code&quot;, timeout_ms=30000)
+
+# Get all bound variables (type and short repr)
+variables: dict[str, str] = session.variables()
+# {&quot;x&quot;: &quot;list: [1, 2, 3]&quot;, &quot;name&quot;: &quot;str: &#x27;Alice&#x27;&quot;}
+
+# Inspect a single variable (type, repr, docstring, etc.)
+info: dict = session.inspect(&quot;x&quot;)
+# {&quot;type&quot;: &quot;list&quot;, &quot;repr&quot;: &quot;[1, 2, 3]&quot;, &quot;dir&quot;: [...], &quot;len&quot;: 3}
+
+# Clear all user-defined variables (keeps builtins)
+session.reset()
+
+# Close the session and terminate the worker
+session.close()
+
+# Use as a context manager
+with ReplSession(&quot;temp&quot;) as s:
+    s.execute(&quot;x = 42&quot;)
+</code></pre>
+<h3>SessionPool</h3>
+<p>Manage multiple REPL sessions indexed by ID.</p>
+
+<pre><code>```python
+from awrepl import SessionPool
+
+pool = SessionPool(timeout_ms=30000, max_output_bytes=65536)
+
+# Create a session (auto-generate ID)
+sid1 = pool.create_session()
+
+# Create a session with a custom ID
+sid2 = pool.create_session(&quot;agent-2&quot;)
+
+# Get a session
+session = pool.get_session(sid2)
+session.execute(&quot;x = 42&quot;)
+
+# List all session IDs
+sessions = pool.list_sessions()
+
+# Delete a session
+pool.delete_session(sid1)
+
+# Close all sessions
+pool.close_all()
+</code></pre>
+<p>Each session has its own namespace — one agent's variables don't affect another.</p>
+<hr />
+<h2>CLI</h2>
+
+<pre><code>```bash
+# Execute code once (ephemeral session)
+awrepl run &quot;print(1 + 2)&quot;
+
+# Use a persistent session across multiple calls
+awrepl --session myagent run &quot;x = 42&quot;
+awrepl --session myagent run &quot;print(x)&quot;  # Prints 42
+
+# Output as JSON
+awrepl run &quot;42&quot; --json
+# {&quot;stdout&quot;: &quot;&quot;, &quot;stderr&quot;: &quot;&quot;, &quot;value&quot;: &quot;42&quot;, &quot;exception&quot;: null, ...}
+
+# Interactive REPL (basic, stdin-based)
+awrepl serve
+
+# Session-based interactive REPL
+awrepl --session agent serve
+
+# Verify the REPL contract (no network required)
+awrepl --self-test
+</code></pre>
+<p>Options:
+- <code>--session ID</code> — Use a specific session (creates if needed)
+- <code>--json</code> — Output result as JSON
+- <code>--traceback</code> — Show full traceback on exception</p>
+<hr />
+<h2>How it works</h2>
+<p>awrepl runs a Python subprocess (<code>python -i</code>-style worker) and communicates via JSON over pipes. The worker:
+- Maintains a single persistent namespace
+- Executes code and captures stdout/stderr
+- Handles timeouts and output truncation
+- Survives syntax errors and exceptions</p>
+<p>Multiple <code>ReplSession</code> instances can run in parallel, each with its own worker subprocess, enabling concurrent agents to maintain separate state.</p>
+<p><strong>Why subprocess, not in-process <code>exec()</code>?</strong>
+- In-process execution lets agent code crash or corrupt the host process
+- Subprocess isolation means a fatal error in agent code doesn't kill the agent
+- Each session gets its own Python interpreter with its own memory space
+- Timeouts are more reliable (can interrupt the subprocess)</p>
+<p><strong>Platform support:</strong> Linux, macOS, Windows (tested on all three). Uses only Python standard library — no external dependencies.</p>
+<hr />
+<h2><code>--self-test</code></h2>
+<p>Every install can prove the contract, with no service and no network:</p>
+
+<pre><code>```console
+$ awrepl --self-test
+  PASS  Variables persist across calls
+  PASS  Syntax error doesn&#x27;t kill session
+  PASS  Exception doesn&#x27;t kill session
+  PASS  Output truncation works
+  PASS  variables() lists bound names
+  PASS  Pool sessions are isolated
+
+SELF-TEST: awrepl ok (6/6)
+</code></pre>
+<p>The test asserts:
+1. Variables defined in one call are readable in another (the whole point)
+2. A syntax error doesn't terminate the session
+3. An exception is reported, but the session survives
+4. Output longer than <code>max_output_bytes</code> is truncated with a flag
+5. <code>variables()</code> lists bound names correctly
+6. Sessions in a pool don't see each other's variables</p>
+<hr />
+<h2>The bug this package exists to prevent</h2>
+<p>An agent with access to a live object can <strong>look at it</strong> instead of guessing about it from memory.</p>
+<p>Without awrepl:</p>
+
+<pre><code>```python
+# Agent&#x27;s turn 1: I ran this, but I don&#x27;t remember the result
+code = &quot;data = load_json(&#x27;config.json&#x27;)&quot;
+result = subprocess.run([&quot;python&quot;, &quot;-c&quot;, code])
+# Stdout gone, no access to `data`
+
+# Agent&#x27;s turn 2: Guess based on memory (but agent memory is compressed/forgotten)
+# &quot;What was in that file again? Let me re-run the whole thing...&quot;
+</code></pre>
+<p>With awrepl:</p>
+
+<pre><code>```python
+# Agent&#x27;s turn 1: Run code, data persists
+session.execute(&quot;data = load_json(&#x27;config.json&#x27;)&quot;)
+
+# Agent&#x27;s turn 2: Look at it
+vars = session.variables()  # {&quot;data&quot;: &quot;dict: {...}&quot;}
+info = session.inspect(&quot;data&quot;)  # {&quot;type&quot;: &quot;dict&quot;, &quot;len&quot;: 5, &quot;keys&quot;: [...]}
+</code></pre>
+<p>Cuts through the memory layer. What you ask is what you get.</p>
+<hr />
+<h2>Limitations and design choices</h2>
+<p><strong>Timeouts:</strong> The <code>timeout_ms</code> parameter exists, but relies on the subprocess signal handler. Some heavy operations (deep recursion, infinite loops in C extensions) may not be interruptible. Use OS-level resource limits (cgroups, ulimit) for hard guarantees.</p>
+<p><strong>Namespace pollution:</strong> The namespace persists, so a large object assigned to <code>x</code> stays in memory until <code>reset()</code> or the session closes. Plan for that.</p>
+<p><strong>No remote execution:</strong> This is a local subprocess REPL. For distributed execution, wrap it in an HTTP service or use it alongside a message queue.</p>
+<hr />
+<!-- aither-ecosystem:start GENERATED from the ecosystem registry. Edits here are overwritten; change the registry instead. -->
+
+<h2>The aw family</h2>
+<p>Standalone tools that share one idea: <strong>replace something you would otherwise have to <em>trust</em> with something you can <em>check</em>.</strong></p>
+<p>Each installs on its own, works offline, and needs no account.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>instead of trusting</th>
+<th>you check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/Aitherium/awdk">awdk</a></td>
+<td>a framework's idea of how your agents should run</td>
+<td>one loop you can read, pointed at a backend you already pay for</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awskills">awskills</a></td>
+<td>that an agent knows your procedure</td>
+<td>the procedure written down, versioned, and loadable by any agent</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awm">awm</a></td>
+<td>that memory stayed in its lane</td>
+<td>tenant:user:project scopes, so a write cannot cross a boundary</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awnode">awnode</a></td>
+<td>a vendor's cloud with every prompt</td>
+<td>a local gateway routing to backends you chose</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awgraph">awgraph</a></td>
+<td>that grep found everything</td>
+<td>an AST + tree-sitter call graph an agent can traverse</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awgit">awgit</a></td>
+<td>that no one else is editing this file</td>
+<td>a lease, refused at commit time if you do not hold it</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awseal">awseal</a></td>
+<td>that the artifact came from who you think</td>
+<td>an Ed25519 seal — the key that verifies is not the key that forges</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awshare">awshare</a></td>
+<td>that the download is intact</td>
+<td>content-addressed bundles, verified on fetch</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awnest">awnest</a></td>
+<td>that there is a person on the other end</td>
+<td>a verdict with evidence, where "we could not tell" is not "yes"</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awnboard">awnboard</a></td>
+<td>a share link anyone who sees it can use</td>
+<td>an invitation addressed to one person, for one gate, revocable</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awnix">awnix</a></td>
+<td>that the box is what you left it as</td>
+<td>an immutable image you built, with atomic rollback</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awrecover">awrecover</a></td>
+<td>that the restore worked</td>
+<td>a restore that fully lands or does not land at all</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awrelay">awrelay</a></td>
+<td>a SaaS in the middle of your agents</td>
+<td>findings, alerts and coordination over your own transport</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awmail">awmail</a></td>
+<td>a mailbox somebody else can read</td>
+<td>mail your agents send and receive over your own server</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awfind">awfind</a></td>
+<td>one vendor's idea of the web</td>
+<td>results from whichever providers you configured</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awbrowse">awbrowse</a></td>
+<td>that the page said what you were told</td>
+<td>the render, the DOM and the requests it made</td>
+</tr>
+<tr>
+<td><strong>awrepl</strong> <em>(you are here)</em></td>
+<td>that an agent guesses instead of looks</td>
+<td>a session where the object stays around to inspect</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/aitherkvcache">aitherkvcache</a></td>
+<td>a vendor's quantisation defaults</td>
+<td>sub-byte KV cache kernels you can benchmark yourself</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/AitherZero">AitherZero</a></td>
+<td>a pile of scripts nobody has numbered</td>
+<td>numbered, discoverable automation with declarative playbooks</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/AitherConnect">AitherConnect</a></td>
+<td>what a page tells your browser to do</td>
+<td>a federated search and desktop bridge you host</td>
+</tr>
+</tbody>
+</table>
+<p><a href="https://github.com/Aitherium/awnix"><strong>awnix</strong></a> is the ground floor — A Linux you can hand to an agent — immutable base, capabilities included.</p>
+<!-- aither-ecosystem:end -->
+    </section>
+
+    <section class="uni">
+<h2>The Aitherium Ecosystem</h2>
+<p class="sub">Portable tools you adopt one at a time. Each one works alone.</p>
+<div class="uni-stage">
+<canvas class="uni-canvas" width="1080" height="190"></canvas>
+<div class="uni-nodes">
+<a href="https://aitherium.github.io/AitherConnect/" class="orb"><span class="k">AitherConnect</span><span class="n">AitherConnect</span><span class="d">Browser extension — federated AI search, page context, and the Living OS overlay.</span></a>
+<a href="https://aitherium.github.io/AitherZero/" class="orb"><span class="k">AitherZero</span><span class="n">AitherZero</span><span class="d">PowerShell 7+ automation framework — numbered, self-describing scripts.</span></a>
+<a href="https://aitherium.github.io/aitherkvcache/" class="orb"><span class="k">aitherkvcache</span><span class="n">aitherkvcache</span><span class="d">Near-optimal KV cache quantization for LLM inference — sub-byte compression.</span></a>
+<a href="https://aitherium.github.io/awbrowse/" class="orb"><span class="k">awbrowse</span><span class="n">awbrowse</span><span class="d">A portable browser client — navigate, console, network, DOM, screenshot.</span></a>
+<a href="https://aitherium.github.io/awdk/" class="orb"><span class="k">awdk</span><span class="n">awdk</span><span class="d">Build AI agent fleets — 3 lines, any backend, local or cloud.</span></a>
+<a href="https://aitherium.github.io/awfind/" class="orb"><span class="k">awfind</span><span class="n">awfind</span><span class="d">A portable search client — query, results, ranking.</span></a>
+<a href="https://aitherium.github.io/awgit/" class="orb"><span class="k">awgit</span><span class="n">awgit</span><span class="d">Semantic version control on top of git — edit-ops and leases.</span></a>
+<a href="https://aitherium.github.io/awgraph/" class="orb"><span class="k">awgraph</span><span class="n">awgraph</span><span class="d">A semantic code graph for agents — AST + tree-sitter, call graphs.</span></a>
+<a href="https://aitherium.github.io/awkno/" class="orb"><span class="k">awkno</span><span class="n">awkno</span><span class="d">The man page for the Aither World — every brick, stack and law, offline.</span></a>
+<a href="https://aitherium.github.io/awm/" class="orb"><span class="k">awm</span><span class="n">awm</span><span class="d">A portable, scoped agent memory.</span></a>
+<a href="https://aitherium.github.io/awmail/" class="orb"><span class="k">awmail</span><span class="n">awmail</span><span class="d">Give an agent an email address — send, and actually receive.</span></a>
+<a href="https://aitherium.github.io/awnboard/" class="orb"><span class="k">awnboard</span><span class="n">awnboard</span><span class="d">A front gate you can put in front of anything, and hand someone the key to.</span></a>
+<a href="https://aitherium.github.io/awnest/" class="orb"><span class="k">awnest</span><span class="n">awnest</span><span class="d">Prove there is a human before you let them into the nest.</span></a>
+<a href="https://aitherium.github.io/awnode/" class="orb"><span class="k">awnode</span><span class="n">awnode</span><span class="d">A lightweight local gateway — bridges your apps to the AI backends you chose.</span></a>
+<a href="https://aitherium.github.io/awprism/" class="orb"><span class="k">awprism</span><span class="n">awprism</span><span class="d">Turn a failure into ranked hypotheses — and say what would confirm each one.</span></a>
+<a href="https://aitherium.github.io/awreason/" class="orb"><span class="k">awreason</span><span class="n">awreason</span><span class="d">A portable reasoning client — sessions, phases, thoughts, and the chain that produced the answer.</span></a>
+<a href="https://aitherium.github.io/awrecover/" class="orb"><span class="k">awrecover</span><span class="n">awrecover</span><span class="d">Labelled snapshots with an all-or-nothing restore.</span></a>
+<a href="https://aitherium.github.io/awrecurse/" class="orb"><span class="k">awrecurse</span><span class="n">awrecurse</span><span class="d">Answer a question over a context far larger than the window — recursively, with the trace kept.</span></a>
+<a href="https://aitherium.github.io/awrelay/" class="orb"><span class="k">awrelay</span><span class="n">awrelay</span><span class="d">Portable agent messaging — findings, alerts, coordination.</span></a>
+<a href="https://aitherium.github.io/awrepl/" class="orb here"><span class="k">awrepl</span><span class="n">awrepl</span><span class="d">A REPL an agent can actually use — state that survives between turns.</span></a>
+<a href="https://aitherium.github.io/awresearch/" class="orb"><span class="k">awresearch</span><span class="n">awresearch</span><span class="d">Ask a research question, get a cited report you can check.</span></a>
+<a href="https://aitherium.github.io/awrun/" class="orb"><span class="k">awrun</span><span class="n">awrun</span><span class="d">A priority-aware queue and dispatcher for agentic runs and ad-hoc CI builds.</span></a>
+<a href="https://aitherium.github.io/awseal/" class="orb"><span class="k">awseal</span><span class="n">awseal</span><span class="d">Sign an artifact so a stranger can verify it.</span></a>
+<a href="https://aitherium.github.io/awshare/" class="orb"><span class="k">awshare</span><span class="n">awshare</span><span class="d">Publish an artifact and fetch it back verified.</span></a>
+<a href="https://aitherium.github.io/awskills/" class="orb"><span class="k">awskills</span><span class="n">awskills</span><span class="d">Portable agent skills — self-contained procedures an agent loads on demand.</span></a>
+</div>
+</div>
+</section>
+
+    <footer>
+        <div class="row">
+            <p>Part of the <strong>aw family</strong> — Aither World tools, each one <em>adoptable alone</em>.</p>
+            <div class="sp"></div>
+            <a href="https://github.com/Aitherium" class="el">
+                <span class="n">Ai</span>
+                <span class="s">⭐</span>
+            </a>
+        </div>
+    </footer>
+</div>
+
+<script>
+// Universe strip flight paths (animated SVG arcs between bricks)
+const canvas = document.querySelector('.uni-canvas');
+const ctx = canvas && canvas.getContext('2d');
+if (ctx) {
+    ctx.strokeStyle = 'rgba(42, 215, 215, 0.1)';
+    ctx.lineWidth = 1;
+    const nodes = Array.from(document.querySelectorAll('.uni-nodes .orb'));
+    const orbHere = document.querySelector('.orb.here');
+    if (orbHere) {
+        const from = {
+            x: orbHere.offsetLeft + orbHere.offsetWidth / 2,
+            y: orbHere.offsetTop + orbHere.offsetHeight / 2 - 100
+        };
+        nodes.forEach(node => {
+            if (node !== orbHere) {
+                const to = {
+                    x: node.offsetLeft + node.offsetWidth / 2,
+                    y: node.offsetTop + node.offsetHeight / 2 - 100
+                };
+                ctx.beginPath();
+                ctx.moveTo(from.x, from.y);
+                const cp = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - 60 };
+                ctx.quadraticCurveTo(cp.x, cp.y, to.x, to.y);
+                ctx.stroke();
+            }
+        });
+    }
+}
+</script>
+</body>
+</html>
