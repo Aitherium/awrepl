@@ -15,6 +15,7 @@ missing is worthless precisely when you need it.
 from __future__ import annotations
 
 import importlib.util
+import os
 import shutil
 import sys
 
@@ -22,8 +23,17 @@ import sys
 #: package cannot read the registry, and a doctor that guessed at the family
 #: would go stale in silence. Regenerate to update.
 SELF = 'awrepl'
-FAMILY = ['awbac', 'awbrowse', 'awdit', 'awfind', 'awgit', 'awgraph', 'awiam', 'awkno', 'awm', 'awmail', 'awnboard', 'awnest', 'awnet', 'awnode', 'awprism', 'awreason', 'awrecover', 'awrecurse', 'awrelay', 'awresearch', 'awrun', 'awseal', 'awshare', 'awtunnel']
+FAMILY = ['awbac', 'awbrowse', 'awdit', 'awfind', 'awgit', 'awgraph', 'awiam', 'awkno', 'awm', 'awmail', 'awnboard', 'awnest', 'awnet', 'awnode', 'awpredict', 'awprism', 'awreason', 'awrecover', 'awrecurse', 'awrelay', 'awresearch', 'awrun', 'awseal', 'awshare', 'awtunnel']
 PAIRS_WITH = ['adk', 'awprism']
+
+#: This brick's OWN config, read out of its source at generation time.
+#: ENV_REQUIRED is `os.environ["X"]` -- absent, that is a KeyError the moment
+#: the line runs. ENV_OPTIONAL is `os.getenv("X")`, which returns None and lets
+#: the caller cope. Only this brick's namespace is listed: reporting the
+#: platform-wide vars it also touches would be noise, and a doctor that floods
+#: gets ignored.
+ENV_REQUIRED = []
+ENV_OPTIONAL = []
 
 
 def _installed(mod: str) -> "str | None":
@@ -69,6 +79,15 @@ def report(out=None) -> int:
     if present:
         print(f"             {' '.join(sorted(present))}", file=out)
 
+    missing_req = [v for v in ENV_REQUIRED if not os.environ.get(v)]
+    if ENV_REQUIRED or ENV_OPTIONAL:
+        have = sum(1 for v in ENV_REQUIRED + ENV_OPTIONAL if os.environ.get(v))
+        total = len(ENV_REQUIRED) + len(ENV_OPTIONAL)
+        print(f"  config     {have}/{total} of this brick's own vars set", file=out)
+        if missing_req:
+            # Not a preference. os.environ[...] raises the moment it runs.
+            print(f"             MISSING REQUIRED: {' '.join(missing_req)}", file=out)
+
     local = _local_checks()
     for line in local:
         print(f"  {line}", file=out)
@@ -76,6 +95,12 @@ def report(out=None) -> int:
     if mine is None:
         print(f"\nverdict: {SELF} itself is not importable. Reinstall it before "
               f"anything else here means much.", file=out)
+        return 1
+    if missing_req:
+        print(f"\nverdict: {SELF} is missing required config "
+              f"({', '.join(missing_req)}). Those are read with os.environ[...], "
+              f"so the code path that needs them raises rather than degrades.",
+              file=out)
         return 1
     if missing_pairs:
         print(f"\nverdict: {SELF} works, but pairs with "
