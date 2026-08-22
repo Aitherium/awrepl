@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<!-- generated-by: gen_brick_page -->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>awrepl — A REPL an agent can actually use — state that survives between turns.</title>
+<meta name="description" content="A REPL an agent can actually use — state that survives between turns.">
+<style>
+  :root{
+    --bg:#fbfbfa; --panel:#fff; --ink:#16161d; --dim:#5c5c6b; --line:#e4e4e8;
+    --accent:#3b5bdb; --accent-dim:#dbe2fb;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme=light]){
+      --bg:#0d0d11; --panel:#15151c; --ink:#e8e8ef; --dim:#9a9aad; --line:#26262f;
+      --accent:#8ba4ff; --accent-dim:#1c2340;
+    }
+  }
+  :root[data-theme=dark]{
+    --bg:#0d0d11; --panel:#15151c; --ink:#e8e8ef; --dim:#9a9aad; --line:#26262f;
+    --accent:#8ba4ff; --accent-dim:#1c2340;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:52rem;margin:0 auto;padding:0 1.25rem}
+  header{padding:4.5rem 0 2.5rem;border-bottom:1px solid var(--line)}
+  h1{font-size:clamp(2.1rem,6vw,3.1rem);line-height:1.1;margin:0 0 .6rem;
+     letter-spacing:-.02em;font-weight:650}
+  .tag{color:var(--dim);font-size:1.12rem;max-width:40rem;margin:0}
+  .pill{display:inline-block;font-family:var(--mono);font-size:.72rem;
+        padding:.2rem .55rem;border:1px solid var(--line);border-radius:999px;
+        color:var(--dim);margin-bottom:1.1rem}
+  h2{font-size:1.32rem;margin:3rem 0 .9rem;letter-spacing:-.01em}
+  p{margin:0 0 1rem}
+  code,pre{font-family:var(--mono);font-size:.87rem}
+  code{background:var(--accent-dim);padding:.12rem .34rem;border-radius:4px}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+      padding:1rem;overflow-x:auto;margin:0 0 1rem}
+  pre code{background:none;padding:0}
+  a{color:var(--accent)}
+  .swap{display:grid;gap:.75rem;grid-template-columns:1fr 1fr;margin:1.25rem 0}
+  @media (max-width:34rem){.swap{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+        padding:.9rem 1rem}
+  .card .l{color:var(--dim);font-size:.76rem;text-transform:uppercase;
+           letter-spacing:.06em;margin-bottom:.3rem}
+  .pairs a{display:inline-block;font-family:var(--mono);font-size:.82rem;
+           border:1px solid var(--line);border-radius:999px;padding:.18rem .6rem;
+           margin:.2rem .3rem .2rem 0;text-decoration:none}
+  footer{border-top:1px solid var(--line);margin-top:4rem;padding:2rem 0 4rem;
+         color:var(--dim);font-size:.86rem}
+  footer a{margin-right:1.1rem}
+  .toggle{position:absolute;top:1.1rem;right:1.1rem;background:var(--panel);
+          border:1px solid var(--line);color:var(--dim);border-radius:8px;
+          padding:.35rem .6rem;cursor:pointer;font-size:.78rem;font-family:var(--sans)}
+</style>
+</head>
+<body>
+<button class="toggle" id="t" aria-label="Toggle colour scheme">◐</button>
+
+<div class="wrap">
+<header>
+  <span class="pill">tool · pip install awrepl</span>
+  <h1>awrepl</h1>
+  <p class="tag">A REPL an agent can actually use — state that survives between turns.</p>
+</header>
+
+<h2>The problem</h2>
+<p>An agent given one-shot shell commands rebuilds its whole world on every call, so it guesses instead of looking — and in a transcript a guess is indistinguishable from a reading. Every variable it wanted is gone the moment the command exits, which is why agents describe state rather than inspect it.</p>
+<div class="swap"><div class="card"><div class="l">instead of trusting</div>what the agent believes the value is</div><div class="card"><div class="l">you check</div>the value, printed from the live session</div></div>
+<h2>Adopt it</h2>
+<pre><code>pip install awrepl</code></pre>
+<p>Give an agent a live session it can keep poking at, so the next question is asked of the object instead of of its own memory.</p>
+
+<h2>Pairs with</h2>
+<p class="pairs"><a href="https://aitherium.github.io/awprism/">awprism</a><a href="https://aitherium.github.io/awdk/">awdk</a><a href="https://aitherium.github.io/awnix/">awnix</a></p>
+<p style="color:var(--dim);font-size:.9rem">Pairing is composition, never dependency —
+awrepl installs and runs on its own.</p>
+
+<h2>The rest of the Aither World</h2>
+<p>Every brick below is live, drawn from that repository's own published manifest.</p>
+<div id="aither-constellation" data-active="awrepl"></div>
+<script src="aither-constellation.js" defer></script>
+
+<footer>
+  <a href="https://github.com/Aitherium/awrepl">Source</a>
+  <a href="aither-manifest.json">Manifest</a>
+  <a href="https://aitherium.github.io/">The Aither World</a>
+  <div style="margin-top:.8rem">Generated from the ecosystem registry. Edit the
+  registry, not this page.</div>
+</footer>
+</div>
+
+<script>
+(function(){
+  var r=document.documentElement,b=document.getElementById('t');
+  try{var s=localStorage.getItem('aither-theme');if(s)r.setAttribute('data-theme',s);}catch(e){}
+  b.addEventListener('click',function(){
+    var d=r.getAttribute('data-theme')==='dark'?'light':'dark';
+    r.setAttribute('data-theme',d);
+    try{localStorage.setItem('aither-theme',d);}catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
