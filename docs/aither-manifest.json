@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1",
+  "name": "awrepl",
+  "description": "A REPL an agent can actually use — state that survives between turns.",
+  "url": "https://aitherium.github.io/awrepl/",
+  "repository": "https://github.com/Aitherium/awrepl",
+  "kind": "tool",
+  "status": "public",
+  "adopt": "Give an agent a live session it can keep poking at, so the next question is asked of the object instead of of its own memory.",
+  "pairs_with": [
+    "awprism",
+    "awdk",
+    "awnix"
+  ],
+  "includes": [],
+  "metrics": {
+    "files": {
+      "value": 17,
+      "as_of": "2026-08-22T18:47:19-07:00"
+    },
+    "tests": {
+      "value": 3,
+      "as_of": "2026-08-22T18:47:19-07:00"
+    }
+  }
+}
