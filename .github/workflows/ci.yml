@@ -35,7 +35,10 @@ jobs:
         shell: bash
         run: |
           python -m pip install pytest pytest-asyncio
-          python -m pytest -x -q; rc=$?
+          # `cmd; rc=$?` dies under the runner's `bash -e` BEFORE the tolerance
+          # line -- `|| rc=$?` is the only spelling that survives it.
+          rc=0
+          python -m pytest -x -q || rc=$?
           # exit 5 = collected nothing (every test skipped/absent). That is
           # "no verdict", not "failed" -- awpredict went red on exactly this.
           [ "$rc" -eq 0 ] || [ "$rc" -eq 5 ]
