@@ -38,7 +38,10 @@ jobs:
           # `cmd; rc=$?` dies under the runner's `bash -e` BEFORE the tolerance
           # line -- `|| rc=$?` is the only spelling that survives it.
           rc=0
-          python -m pytest -x -q || rc=$?
+          # asyncio_mode=auto: bare `async def` tests (awgraph) run instead of
+          # failing "not natively supported" -- strict mode needs markers no
+          # generic rollout can add.
+          python -m pytest -x -q -o asyncio_mode=auto || rc=$?
           # exit 5 = collected nothing (every test skipped/absent). That is
           # "no verdict", not "failed" -- awpredict went red on exactly this.
           [ "$rc" -eq 0 ] || [ "$rc" -eq 5 ]
