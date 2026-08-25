@@ -1,0 +1,38 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.10" }
+          - { os: ubuntu-latest, python: "3.12" }
+          - { os: windows-latest, python: "3.12" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: install
+        run: python -m pip install -e .
+      - name: import smoke
+        shell: bash
+        run: |
+          set -e
+          awrepl --help >/dev/null || awrepl --version >/dev/null
+      - name: tests
+        if: ${{ hashFiles('tests/**', 'test/**') != '' }}
+        shell: bash
+        run: |
+          python -m pip install pytest
+          python -m pytest -x -q
