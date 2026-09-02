@@ -10,17 +10,18 @@
   "pairs_with": [
     "awprism",
     "awdk",
-    "awnix"
+    "awnix",
+    "awembed"
   ],
   "includes": [],
   "metrics": {
     "files": {
       "value": 20,
-      "as_of": "2026-08-27T05:45:57-07:00"
+      "as_of": "2026-09-02T16:28:20-07:00"
     },
     "tests": {
       "value": 3,
-      "as_of": "2026-08-27T05:45:57-07:00"
+      "as_of": "2026-09-02T16:28:20-07:00"
     }
   }
 }
