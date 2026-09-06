@@ -39,3 +39,11 @@ jobs:
         with:
           packages-dir: dist/
           skip-existing: true
+          # TOKEN AUTH -- the pattern that actually works, copied from awdk.
+          # Measured 2026-09-06: a brick's public pypi-publish lane fails
+          # `invalid-publisher` -- the OIDC registration pins the repo NAME,
+          # and no publisher row exists for these repos. The one public repo
+          # that publishes today (awdk) does it with this line plus a
+          # PYPI_API_TOKEN repo secret. Token auth skips the exchange
+          # entirely. Requires: the secret set on THIS public repo.
+          password: ${{ secrets.PYPI_API_TOKEN }}
