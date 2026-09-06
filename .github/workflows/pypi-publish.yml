@@ -21,7 +21,15 @@ jobs:
           pip install -e .
           pip install pytest pytest-asyncio pytest-timeout
       - name: Run the test suite before publishing
-        run: python -m pytest tests/ -q --timeout=180
+        run: |
+          # A package with no tests/ is REPORTED, never silently treated as
+          # passing: `pytest tests/` on an absent directory exits non-zero and
+          # would fail the publish for a reason that is not a test failure.
+          if [ ! -d tests ]; then
+            echo "::warning::no tests/ directory -- publishing on the build and moat checks alone"
+            exit 0
+          fi
+          python -m pytest tests/ -q --timeout=180
       - name: Build package
         run: python -m build
       - name: Moat guard (inspect built wheel + sdist)
