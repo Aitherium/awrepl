@@ -23,7 +23,7 @@ import sys
 #: package cannot read the registry, and a doctor that guessed at the family
 #: would go stale in silence. Regenerate to update.
 SELF = 'awrepl'
-FAMILY = ['awask', 'awask', 'awbac', 'awbrowse', 'awdit', 'awevolve', 'awevolve', 'awfind', 'awgit', 'awgraph', 'awiam', 'awkno', 'awm', 'awmail', 'awnboard', 'awnest', 'awnet', 'awnode', 'awpredict', 'awprism', 'awreason', 'awrecover', 'awrecurse', 'awrelay', 'awresearch', 'awrun', 'awseal', 'awshare', 'awtunnel']
+FAMILY = ['awask', 'awbac', 'awbrain', 'awbrowse', 'awclassify', 'awdelphi', 'awdit', 'awevolve', 'awfind', 'awfocus', 'awgit', 'awgraph', 'awgym', 'awiam', 'awkno', 'awm', 'awmail', 'awnboard', 'awnest', 'awnet', 'awnode', 'awpool', 'awpredict', 'awprism', 'awreason', 'awrecover', 'awrecurse', 'awrelay', 'awrena', 'awresearch', 'awrise', 'awrouter', 'awrtifact', 'awrun', 'awscreen', 'awseal', 'awshare', 'awsprite', 'awswarm', 'awtoll', 'awtunnel', 'awvision', 'awvoice', 'awwall']
 PAIRS_WITH = ['adk', 'awprism']
 
 #: This brick's OWN config, read out of its source at generation time.
@@ -132,6 +132,28 @@ def _local_checks() -> "list[str]":
 
 
 def main(argv: "list[str] | None" = None) -> int:
+    # --self-test delegates to a SIBLING module when one exists.
+    #
+    # This file is generated and a fresh run replaces it, so a self-test
+    # written HERE is deleted by the next regeneration. awdelphi learned that
+    # the expensive way: 125 lines exercising four real failure paths --
+    # convergence, roster anonymization, resume, gateway-down -- lived in this
+    # file and were destroyed by a routine regeneration, silently, leaving a
+    # --self-test flag that reported PASS while asserting nothing.
+    #
+    # So the seam is a separate module the generator never writes. A package
+    # with real machinery to prove puts it in _selftest.py; everything else
+    # keeps the honest answer below rather than a self-test that only ever
+    # passes.
+    argv = list(argv if argv is not None else __import__("sys").argv[1:])
+    if "--self-test" in argv:
+        try:
+            from . import _selftest as _st
+        except Exception:
+            print("no _selftest module: this doctor reports the stack, and has",
+                  "no machinery of its own to prove")
+            return 0
+        return int(_st.run())
     return report()
 
 
