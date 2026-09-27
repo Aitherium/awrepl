@@ -4,12 +4,10 @@ on:
     types: [published]
   workflow_dispatch:
 permissions:
-  id-token: write
   contents: read
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: pypi
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,8 +32,18 @@ jobs:
         run: python -m build
       - name: Moat guard (inspect built wheel + sdist)
         run: python scripts/check_moat_boundary.py
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist/
-          skip-existing: true
+      - name: Confirm this version reached PyPI
+        # PyPI trusts the MONOREPO's publish lane for this package, not this repo: an
+        # upload from here fails the trusted-publishing exchange on every release while
+        # the real publish succeeds elsewhere. Check the outcome instead -- the version
+        # must be on PyPI within 30 minutes of the release.
+        run: |
+          name=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['name'])")
+          ver=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/$name/$ver/json")
+            if [ "$code" = 200 ]; then echo "$name $ver is on PyPI"; exit 0; fi
+            sleep 30
+          done
+          echo "::error::$name $ver is not on PyPI 30 min after the release -- check the monorepo lane 'Publish bricks (paced)'"
+          exit 1
