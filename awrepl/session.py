@@ -6,6 +6,7 @@ to build up context and explore it without re-running the entire history.
 """
 
 import json
+import queue
 import subprocess
 import sys
 import threading
@@ -55,7 +56,10 @@ class ReplSession:
         self.timeout_ms = timeout_ms
         self.max_output_bytes = max_output_bytes
         self._process: Optional[subprocess.Popen[str]] = None
+        self._lines: "queue.Queue[Optional[str]]" = queue.Queue()
         self._lock = threading.Lock()
+        #: times a worker was killed for overrunning ``timeout_ms`` (its namespace is gone)
+        self.restarts = 0
         self._start_worker()
 
     def _start_worker(self) -> None:
@@ -71,6 +75,39 @@ class ReplSession:
         )
         if self._process.stdin is None or self._process.stdout is None:
             raise RuntimeError("Failed to create worker subprocess")
+        # a blocking readline cannot honour a deadline: one reader thread per worker
+        # feeds a queue, and the caller waits on the queue with the timeout
+        self._lines = queue.Queue()
+        threading.Thread(target=self._pump, args=(self._process.stdout, self._lines),
+                         name="awrepl-%s" % self.session_id, daemon=True).start()
+
+    @staticmethod
+    def _pump(stream: Any, lines: "queue.Queue[Optional[str]]") -> None:
+        try:
+            for line in iter(stream.readline, ""):
+                lines.put(line)
+        except (OSError, ValueError):
+            pass
+        lines.put(None)  # EOF: the worker exited
+
+    def _read_line(self, timeout_s: Optional[float]) -> str:
+        """The worker's next reply line; '' when it exited; TimeoutError past the deadline."""
+        try:
+            line = self._lines.get(timeout=timeout_s)
+        except queue.Empty:
+            raise TimeoutError from None
+        return line or ""
+
+    def _kill_and_restart(self) -> None:
+        proc = self._process
+        if proc is not None:
+            proc.kill()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+        self.restarts += 1
+        self._start_worker()
 
     def execute(self, code: str, timeout_ms: Optional[int] = None) -> ExecResult:
         """
@@ -107,8 +144,25 @@ class ReplSession:
                 self._process.stdin.write(json.dumps(request) + "\n")
                 self._process.stdin.flush()
 
-                # Read response
-                response_line = self._process.stdout.readline()
+                # Read response, bounded by the timeout (plus process overhead)
+                try:
+                    response_line = self._read_line(timeout_ms / 1000.0 + 2.0)
+                except TimeoutError:
+                    self._kill_and_restart()
+                    elapsed_ms = (time.time() - start_time) * 1000
+                    return ExecResult(
+                        stdout="",
+                        stderr="",
+                        value=None,
+                        exception=(
+                            "TimeoutError: execution exceeded %d ms; the worker was killed "
+                            "and restarted, so the namespace is now EMPTY" % timeout_ms
+                        ),
+                        traceback="",
+                        duration_ms=elapsed_ms,
+                        truncated=False,
+                        truncated_bytes=0,
+                    )
                 elapsed_ms = (time.time() - start_time) * 1000
 
                 if not response_line:
@@ -160,7 +214,7 @@ class ReplSession:
                 self._process.stdin.write(json.dumps(request) + "\n")
                 self._process.stdin.flush()
 
-                response_line = self._process.stdout.readline()
+                response_line = self._read_line(30.0)
                 if not response_line:
                     raise RuntimeError("Worker subprocess closed unexpectedly")
 
@@ -193,7 +247,7 @@ class ReplSession:
                 self._process.stdin.write(json.dumps(request) + "\n")
                 self._process.stdin.flush()
 
-                response_line = self._process.stdout.readline()
+                response_line = self._read_line(30.0)
                 if not response_line:
                     raise RuntimeError("Worker subprocess closed unexpectedly")
 
@@ -218,7 +272,7 @@ class ReplSession:
                 self._process.stdin.write(json.dumps(request) + "\n")
                 self._process.stdin.flush()
 
-                response_line = self._process.stdout.readline()
+                response_line = self._read_line(30.0)
                 if not response_line:
                     raise RuntimeError("Worker subprocess closed unexpectedly")
 
