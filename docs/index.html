@@ -393,7 +393,7 @@ li{margin:0 0 4px}
 
 <p><strong><a href="https://aitherium.github.io/awrepl/">Docs</a></strong>  ·  <a href="https://github.com/Aitherium/awrepl">Source</a>  ·  <code>pip install awrepl</code>  ·  <a href="https://aitherium.github.io/">The Aither World</a></p>
 <blockquote>
-<p><strong>The Aither World</strong> is an operating system for agents — a Linux you can hand to one, the runtimes it works in, and the tools it works with. <a href="https://github.com/Aitherium/awnix">awnix</a> is the Linux underneath it; <strong>awrepl</strong> is one of its 65 bricks — each installs on its own, runs offline, and needs no account.</p>
+<p><strong>The Aither World</strong> is an operating system for agents — a Linux you can hand to one, the runtimes it works in, and the tools it works with. <a href="https://github.com/Aitherium/awnix">awnix</a> is the Linux underneath it; <strong>awrepl</strong> is one of its 66 bricks — each installs on its own, runs offline, and needs no account.</p>
 <p><strong>Start here:</strong> Give an agent a live session it can keep poking at, so the next question is asked of the object instead of of its own memory.</p>
 </blockquote>
 <!-- aither-header:end -->
@@ -688,6 +688,11 @@ info = session.inspect(&quot;data&quot;)  # {&quot;type&quot;: &quot;dict&quot;,
 <td>doc_type, visibility, audience and topics, with the evidence lines that decided each</td>
 </tr>
 <tr>
+<td><a href="https://github.com/Aitherium/awdecide">awdecide</a></td>
+<td>a hosted classifier's probability that never learns whether it was right</td>
+<td>the decision, its probability, and the calibration curve from your own resolved outcomes</td>
+</tr>
+<tr>
 <td><a href="https://github.com/Aitherium/awtoll">awtoll</a></td>
 <td>that your tooling is saving you context</td>
 <td>the measured token cost of each tool call, and what the alternative cost</td>
@@ -974,6 +979,11 @@ info = session.inspect(&quot;data&quot;)  # {&quot;type&quot;: &quot;dict&quot;,
 <tr>
 <td><a href="https://github.com/Aitherium/awclassify">awclassify</a></td>
 <td>Classify any document -- what it is, who may read it, who it is for, what it is about</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aitherium/awdecide">awdecide</a></td>
+<td>One typed-decision contract -- choice / score / bool with a probability -- over a ladder of backends you already run (rules, tiny local models, an LLM's logprobs), fail-closed, with a Brier ledger that resolves every decision against its outcome</td>
 <td>—</td>
 </tr>
 <tr>
