@@ -1,0 +1,36 @@
+# awrepl
+
+> A REPL an agent can actually use — state that survives between turns.
+
+An agent given one-shot shell commands rebuilds its whole world on every call, so it guesses instead of looking — and in a transcript a guess is indistinguishable from a reading. Every variable it wanted is gone the moment the command exits, which is why agents describe state rather than inspect it.
+
+## Install
+
+```
+pip install awrepl
+```
+
+## In Claude Code
+
+- skill: `/awrepl`
+
+## Use it in 30 seconds
+
+Give an agent a live session it can keep poking at, so the next question is asked of the object instead of of its own memory.
+
+## Composes with
+
+- [awprism](https://aitherium.github.io/awprism/) — Turn a failure into ranked hypotheses — and say what would confirm each one.
+- [awdk](https://aitherium.github.io/awdk/) — Build AI agent fleets — 3 lines, any backend, local or cloud.
+- [awnix](https://aitherium.github.io/awnix/) — A Linux you can hand to an agent — immutable base, capabilities included.
+- [awembed](https://aitherium.github.io/awembed/) — Train an embedding model that knows your corpus, and prove it beats the big one.
+
+## Where it lives
+
+- Repo: https://github.com/Aitherium/awrepl
+- Docs: https://aitherium.github.io/awrepl/
+- Manifest (keys + the one-line adoption story): https://aitherium.github.io/awrepl/aither-manifest.json
+
+This repository is mirrored from the AitherOS monorepo by `.github/workflows/sync-awrepl.yml`; hand edits made here are overwritten on the next sync — change the source instead.
+
+Everything Aitherium, in one file for agents: https://aitherium.com/llms.txt
