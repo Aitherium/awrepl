@@ -2,6 +2,10 @@
 Tests for SessionPool - multiple session management and isolation.
 """
 
+import contextlib
+import threading
+import time
+
 import pytest
 from awrepl import SessionPool
 
@@ -137,6 +141,68 @@ class TestSessionManagement:
 
         sessions = pool.list_sessions()
         assert len(sessions) == 0
+
+
+class TestConcurrentPoolOperations:
+    """Pool calls must not serialize behind a session's in-flight execute().
+
+    execute() holds the session's own lock for its whole send/read. The pre-fix
+    pool held the POOL lock across session.close(): measured, a 3 s execute()
+    stalled a concurrent delete_session() for the remaining ~2.5 s and, through
+    the pool lock, an unrelated list_sessions() for the same window.
+    """
+
+    @staticmethod
+    def _start_slow_execute(pool: SessionPool, session_id: str) -> threading.Thread:
+        session = pool.get_session(session_id)
+        started = threading.Event()
+
+        def run() -> None:
+            started.set()
+            # delete_session() killing the worker mid-execute is the race
+            # under test, not a failure
+            with contextlib.suppress(RuntimeError):
+                session.execute("import time; time.sleep(2.0)")
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        assert started.wait(5)
+        return thread
+
+    def test_delete_session_does_not_block_behind_execute(self):
+        """delete_session() returns promptly while execute() is in flight."""
+        pool = SessionPool(timeout_ms=30000)
+        session_id = pool.create_session("busy")
+        thread = self._start_slow_execute(pool, session_id)
+        time.sleep(0.5)  # execute() is now inside its locked send/read
+
+        begin = time.monotonic()
+        pool.delete_session(session_id)
+        elapsed = time.monotonic() - begin
+
+        assert elapsed < 1.0, f"delete_session() blocked {elapsed:.2f}s behind execute()"
+        thread.join(timeout=5)
+        pool.close_all()
+
+    def test_list_sessions_not_blocked_by_concurrent_delete(self):
+        """An unrelated list_sessions() is not stalled behind delete_session()."""
+        pool = SessionPool(timeout_ms=30000)
+        session_id = pool.create_session("busy")
+        thread = self._start_slow_execute(pool, session_id)
+        time.sleep(0.5)
+        deleter = threading.Thread(target=pool.delete_session, args=(session_id,), daemon=True)
+        deleter.start()
+        time.sleep(0.3)  # delete_session() is now inside session.close()
+
+        begin = time.monotonic()
+        sessions = pool.list_sessions()
+        elapsed = time.monotonic() - begin
+
+        assert elapsed < 0.5, f"list_sessions() blocked {elapsed:.2f}s behind delete_session()"
+        assert session_id not in sessions  # popped before close, so gone mid-delete
+        thread.join(timeout=5)
+        deleter.join(timeout=5)
+        pool.close_all()
 
 
 class TestPoolConfiguration:

@@ -5,6 +5,7 @@ Maintains execution state across multiple execute() calls, allowing agents
 to build up context and explore it without re-running the entire history.
 """
 
+import contextlib
 import json
 import queue
 import subprocess
@@ -58,6 +59,12 @@ class ReplSession:
         self._process: Optional[subprocess.Popen[str]] = None
         self._lines: "queue.Queue[Optional[str]]" = queue.Queue()
         self._lock = threading.Lock()
+        #: set once by close(). Deliberately lock-free (close must never wait
+        #: on the execute lock) and relied upon as a single-word store:
+        #: readers re-check it under _lock, and any interleaving that slips
+        #: through still lands on the OSError -> dead-session mapping below
+        #: instead of a None dereference.
+        self._closed = False
         #: times a worker was killed for overrunning ``timeout_ms`` (its namespace is gone)
         self.restarts = 0
         self._start_worker()
@@ -100,14 +107,23 @@ class ReplSession:
 
     def _kill_and_restart(self) -> None:
         proc = self._process
-        if proc is not None:
-            proc.kill()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
+        if proc is None or self._closed:
+            # close() ran while this execute() was in flight: restarting here
+            # would resurrect a session that is already closed
+            raise RuntimeError(f"Session {self.session_id} worker is dead")
+        proc.kill()
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            proc.wait(timeout=5)
         self.restarts += 1
         self._start_worker()
+        if self._closed:
+            # close() raced past its own detach while the restart above was
+            # spawning; do not leave a worker behind for a session nobody owns
+            stranded, self._process = self._process, None
+            if stranded is not None:
+                with contextlib.suppress(OSError):
+                    stranded.terminate()
+            raise RuntimeError(f"Session {self.session_id} worker is dead")
 
     def execute(self, code: str, timeout_ms: Optional[int] = None) -> ExecResult:
         """
@@ -127,6 +143,17 @@ class ReplSession:
             timeout_ms = self.timeout_ms
 
         with self._lock:
+            # the liveness check above is only a fast path: close() detaches the
+            # process without this lock, so re-check under the lock and pin the
+            # process in a local. Before this, a close() landing between the
+            # check above and this line made the dereferences below raise
+            # AttributeError ('NoneType' object has no attribute 'stdin')
+            # instead of the dead-session error (reproduced with a close()
+            # interleaved exactly there).
+            proc = self._process
+            if proc is None or self._closed or proc.poll() is not None:
+                raise RuntimeError(f"Session {self.session_id} worker is dead")
+
             request = {
                 "action": "execute",
                 "code": code,
@@ -137,12 +164,20 @@ class ReplSession:
             start_time = time.time()
 
             try:
-                if self._process.stdin is None or self._process.stdout is None:
+                if proc.stdin is None or proc.stdout is None:
                     raise RuntimeError("Worker subprocess broken")
 
                 # Send request
-                self._process.stdin.write(json.dumps(request) + "\n")
-                self._process.stdin.flush()
+                try:
+                    proc.stdin.write(json.dumps(request) + "\n")
+                    proc.stdin.flush()
+                except OSError as exc:
+                    # the worker died between the liveness check and the send
+                    # (a concurrent close() does exactly that; measured: Windows
+                    # raises OSError(22, 'Invalid argument') on the write into a
+                    # dead worker's stdin) -- report the dead session, not the
+                    # raw pipe error
+                    raise RuntimeError(f"Session {self.session_id} worker is dead") from exc
 
                 # Read response, bounded by the timeout (plus process overhead)
                 try:
@@ -205,14 +240,23 @@ class ReplSession:
             raise RuntimeError(f"Session {self.session_id} worker is dead")
 
         with self._lock:
+            # re-checked under the lock for the same reason as execute()
+            proc = self._process
+            if proc is None or self._closed or proc.poll() is not None:
+                raise RuntimeError(f"Session {self.session_id} worker is dead")
+
             request = {"action": "variables"}
 
             try:
-                if self._process.stdin is None or self._process.stdout is None:
+                if proc.stdin is None or proc.stdout is None:
                     raise RuntimeError("Worker subprocess broken")
 
-                self._process.stdin.write(json.dumps(request) + "\n")
-                self._process.stdin.flush()
+                try:
+                    proc.stdin.write(json.dumps(request) + "\n")
+                    proc.stdin.flush()
+                except OSError as exc:
+                    # worker died between check and send: same treatment as execute()
+                    raise RuntimeError(f"Session {self.session_id} worker is dead") from exc
 
                 response_line = self._read_line(30.0)
                 if not response_line:
@@ -238,14 +282,23 @@ class ReplSession:
             raise RuntimeError(f"Session {self.session_id} worker is dead")
 
         with self._lock:
+            # re-checked under the lock for the same reason as execute()
+            proc = self._process
+            if proc is None or self._closed or proc.poll() is not None:
+                raise RuntimeError(f"Session {self.session_id} worker is dead")
+
             request = {"action": "inspect", "name": name}
 
             try:
-                if self._process.stdin is None or self._process.stdout is None:
+                if proc.stdin is None or proc.stdout is None:
                     raise RuntimeError("Worker subprocess broken")
 
-                self._process.stdin.write(json.dumps(request) + "\n")
-                self._process.stdin.flush()
+                try:
+                    proc.stdin.write(json.dumps(request) + "\n")
+                    proc.stdin.flush()
+                except OSError as exc:
+                    # worker died between check and send: same treatment as execute()
+                    raise RuntimeError(f"Session {self.session_id} worker is dead") from exc
 
                 response_line = self._read_line(30.0)
                 if not response_line:
@@ -263,14 +316,23 @@ class ReplSession:
             raise RuntimeError(f"Session {self.session_id} worker is dead")
 
         with self._lock:
+            # re-checked under the lock for the same reason as execute()
+            proc = self._process
+            if proc is None or self._closed or proc.poll() is not None:
+                raise RuntimeError(f"Session {self.session_id} worker is dead")
+
             request = {"action": "reset"}
 
             try:
-                if self._process.stdin is None or self._process.stdout is None:
+                if proc.stdin is None or proc.stdout is None:
                     raise RuntimeError("Worker subprocess broken")
 
-                self._process.stdin.write(json.dumps(request) + "\n")
-                self._process.stdin.flush()
+                try:
+                    proc.stdin.write(json.dumps(request) + "\n")
+                    proc.stdin.flush()
+                except OSError as exc:
+                    # worker died between check and send: same treatment as execute()
+                    raise RuntimeError(f"Session {self.session_id} worker is dead") from exc
 
                 response_line = self._read_line(30.0)
                 if not response_line:
@@ -282,22 +344,41 @@ class ReplSession:
                 pass
 
     def close(self) -> None:
-        """Close the session and terminate the worker process."""
-        if self._process is not None:
+        """
+        Close the session and terminate the worker process.
+
+        Idempotent, and never waits on ``self._lock``: an in-flight execute()
+        holds that lock for its whole send/read, and waiting here stalled
+        SessionPool.delete_session() for the full execute() duration (measured:
+        a 3 s execute() stalled a concurrent delete_session() for ~2.5 s). The
+        worker is detached from the session first, so a racing execute() ends
+        with the dead-session error instead of a None dereference.
+        """
+        self._closed = True
+        proc = self._process
+        if proc is None:
+            return
+        self._process = None
+        with contextlib.suppress(OSError, ValueError):
+            # a polite quit into a worker that is already gone: on Windows the
+            # write raises OSError(22, 'Invalid argument') (measured, both when
+            # the worker was reaped and when it was not); a closed wrapper
+            # raises ValueError. BrokenPipeError is an OSError subclass.
+            # Best-effort: a racing execute() may be mid-write on the same
+            # pipe, and the terminate() below is what actually matters.
+            if proc.stdin is not None:
+                proc.stdin.write(json.dumps({"action": "quit"}) + "\n")
+                proc.stdin.flush()
+        with contextlib.suppress(OSError):
+            # TerminateProcess can also refuse an already-exited worker
+            proc.terminate()
+        with contextlib.suppress(OSError):
             try:
-                with self._lock:
-                    if self._process.stdin is not None:
-                        self._process.stdin.write(json.dumps({"action": "quit"}) + "\n")
-                        self._process.stdin.flush()
-            except (BrokenPipeError, ValueError):
-                pass
-            finally:
-                self._process.terminate()
-                try:
-                    self._process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    self._process.kill()
-                self._process = None
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                with contextlib.suppress(OSError):
+                    proc.kill()
+                    proc.wait(timeout=2)  # reap; kill() alone leaves a zombie
 
     def __enter__(self) -> "ReplSession":
         """Context manager entry."""

@@ -2,6 +2,10 @@
 Tests for ReplSession - core execution and state persistence.
 """
 
+import threading
+import time
+
+import pytest
 from awrepl import ExecResult, ReplSession
 
 
@@ -209,6 +213,143 @@ class TestContextManager:
             result = session.execute("print(x)")
             assert "42" in result.stdout
         # Session should be closed after exiting context
+
+
+class _ProbedLock:
+    """threading.Lock stand-in that records when execute() reaches acquire()."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.acquire_called = threading.Event()
+
+    def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
+        self.acquire_called.set()
+        return self._lock.acquire(blocking, timeout)
+
+    def release(self) -> None:
+        self._lock.release()
+
+    def __enter__(self) -> None:
+        self.acquire()
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.release()
+
+
+class TestConcurrentClose:
+    """close() racing execute() must not corrupt the session."""
+
+    def test_execute_racing_close_never_raises_attribute_error(self):
+        """A close() landing between execute()'s liveness check and its lock must not
+        make execute() dereference a None worker.
+
+        The interleave is forced: the session lock starts held (as an in-flight
+        execute() would hold it), a second execute() passes the pre-lock liveness
+        check and blocks on the lock, and the worker is detached in that window.
+        Pre-fix this raised AttributeError: 'NoneType' object has no attribute
+        'stdin' instead of the dead-session RuntimeError.
+        """
+        session = ReplSession("race", timeout_ms=5000)
+        real_lock = session._lock
+        real_process = session._process
+        probe = _ProbedLock()
+        session._lock = probe
+        caught: list[BaseException] = []
+
+        def run_execute() -> None:
+            try:
+                session.execute("1 + 1")
+            except BaseException as exc:  # the exception type is the assertion
+                caught.append(exc)
+
+        try:
+            probe.acquire()  # hold the lock like an in-flight execute()
+            worker = threading.Thread(target=run_execute, daemon=True)
+            worker.start()
+            assert probe.acquire_called.wait(5), "execute() never reached the lock"
+            session._process = None  # the detach close() performs
+            probe.release()
+            worker.join(timeout=5)
+            assert not worker.is_alive()
+            assert len(caught) == 1, f"expected one error, got {caught!r}"
+            assert not isinstance(caught[0], AttributeError), (
+                f"execute() dereferenced the closed worker: {caught[0]!r}"
+            )
+            assert isinstance(caught[0], RuntimeError)
+            assert "worker is dead" in str(caught[0])
+        finally:
+            session._lock = real_lock
+            if session._process is None:
+                session._process = real_process
+            session.close()
+
+    def test_close_on_reaped_dead_worker_is_clean(self):
+        """close() after the worker exited (and was waited on) returns cleanly.
+
+        Pre-fix on Windows the polite-quit write into the dead worker's stdin
+        raised OSError(22, 'Invalid argument'), which the
+        except (BrokenPipeError, ValueError) around it did not catch.
+        """
+        session = ReplSession("dead", timeout_ms=2000)
+        process = session._process
+        process.kill()
+        process.wait(timeout=5)
+
+        session.close()  # must not raise
+
+        assert session._process is None
+
+    def test_close_on_unwaited_dead_worker_is_clean(self):
+        """close() after the worker exited on its own (nobody waited) returns cleanly."""
+        session = ReplSession("dead-unwaited", timeout_ms=2000)
+        process = session._process
+        process.kill()
+        time.sleep(0.5)  # exited, but wait() was never called
+
+        session.close()  # must not raise
+
+        assert session._process is None
+
+    def test_close_is_idempotent_after_worker_died(self):
+        """A second close() on an already-closed session is a no-op."""
+        session = ReplSession("twice", timeout_ms=2000)
+        session._process.kill()
+        session.close()
+        session.close()
+        assert session._process is None
+
+    def test_execute_send_after_worker_death_reports_dead_session(self):
+        """A worker that dies between execute()'s liveness check and its send must
+        surface the dead-session RuntimeError, not a raw pipe OSError.
+
+        Windows measured: writing into a dead worker's stdin raises
+        OSError(22, 'Invalid argument') -- reachable now that close() terminates
+        without waiting for an in-flight execute().
+        """
+
+        class _DeadPipe:
+            def write(self, data: str) -> int:
+                raise OSError(22, "Invalid argument")
+
+            def flush(self) -> None:
+                pass
+
+        class _FakeProc:
+            stdin = _DeadPipe()
+            stdout = object()
+
+            def poll(self) -> None:
+                return None
+
+        session = ReplSession("send-race", timeout_ms=1000)
+        real_process = session._process
+        session._process = _FakeProc()
+        try:
+            with pytest.raises(RuntimeError, match="worker is dead"):
+                session.execute("1 + 1")
+        finally:
+            session._process = real_process
+            session.close()
 
 
 class TestExecResult:

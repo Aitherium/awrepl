@@ -76,13 +76,24 @@ class SessionPool:
         """
         Close and remove a session.
 
+        The pool lock is held only for the map removal; ``close()`` runs
+        outside it. Consequently deletion is NOT atomic with respect to
+        ``get_session``: a caller that already holds the ``ReplSession`` may
+        find it closed underneath it and must handle the dead-session
+        ``RuntimeError`` (see ``ReplSession.execute``).
+
         Args:
             session_id: Session ID
         """
+        # pop under the pool lock, close outside it: close() can take a while,
+        # and holding the pool lock across it stalled every other pool call --
+        # measured: an in-flight 3 s execute() stalled a concurrent
+        # delete_session() by ~2.5 s and, through the pool lock, an unrelated
+        # list_sessions() with it.
         with self._lock:
-            if session_id in self._sessions:
-                self._sessions[session_id].close()
-                del self._sessions[session_id]
+            session = self._sessions.pop(session_id, None)
+        if session is not None:
+            session.close()
 
     def list_sessions(self) -> list[str]:
         """
@@ -95,11 +106,19 @@ class SessionPool:
             return list(self._sessions.keys())
 
     def close_all(self) -> None:
-        """Close all sessions in the pool."""
+        """Close all sessions in the pool.
+
+        Best-effort teardown, not a barrier: sessions created concurrently
+        after the map is cleared are not closed (the pool is empty to all
+        readers the moment the lock is released).
+        """
+        # detach the sessions under the pool lock and close them outside it,
+        # for the same reason as delete_session()
         with self._lock:
-            for session in self._sessions.values():
-                session.close()
+            sessions = list(self._sessions.values())
             self._sessions.clear()
+        for session in sessions:
+            session.close()
 
     def __del__(self) -> None:
         """Cleanup on garbage collection."""
