@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "awrepl"
-version = "0.1.0"
+version = "0.1.1"
 description = "A REPL an agent can actually use — state that survives between turns."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -1,8 +1,6 @@
 # Changelog
 
-## 0.1.0 — 2026-10-05
-
-Initial tracked changes ahead of release.
+## 0.1.1 — 2026-10-05
 
 - Fixed `SessionPool.delete_session`/`close_all` holding the pool lock across
   `session.close()` — a long `execute()` stalled unrelated pool calls for its
@@ -21,3 +19,8 @@ Initial tracked changes ahead of release.
   closed underneath its holder, which must handle the dead-session
   `RuntimeError`; `close_all` is best-effort teardown, not a barrier —
   sessions created concurrently after the map is cleared survive it.
+
+## 0.1.0 — 2026-08-19
+
+Initial public release.
+
