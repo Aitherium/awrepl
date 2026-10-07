@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: install
-        run: python -m pip install -e .
+        run: python -m pip install -e ".[dev]"
       - name: import smoke
         shell: bash
         run: |
@@ -45,7 +45,11 @@ jobs:
           # asyncio_mode=auto: bare `async def` tests (awgraph) run instead of
           # failing "not natively supported" -- strict mode needs markers no
           # generic rollout can add.
-          python -m pytest -x -q -o asyncio_mode=auto || rc=$?
+          # The TEST DIR only, never the repo root: a bare `pytest` also
+          # collects shipped examples, and awflow's examples/test_resume.py
+          # collided with tests/test_resume.py ("import file mismatch").
+          d=tests; [ -d tests ] || d=test
+          python -m pytest -x -q -o asyncio_mode=auto "$d" || rc=$?
           # exit 5 = collected nothing (every test skipped/absent). That is
           # "no verdict", not "failed" -- awpredict went red on exactly this.
           [ "$rc" -eq 0 ] || [ "$rc" -eq 5 ]
