@@ -9,3 +9,6 @@ contact_links:
   - name: Security policy
     url: https://github.com/Aitherium/.github/blob/main/SECURITY.md
     about: Scope, what to include, and the response commitment.
+  - name: Questions and support
+    url: https://aitherium.com/chat?mode=help
+    about: Ask Aither how to do something, or get help with a setup.
