@@ -10,6 +10,10 @@ An agent given one-shot shell commands rebuilds its whole world on every call, s
 pip install awrepl
 ```
 
+## In Claude Code
+
+- skill: `/awrepl`
+
 ## Use it in 30 seconds
 
 Give an agent a live session it can keep poking at, so the next question is asked of the object instead of of its own memory.
