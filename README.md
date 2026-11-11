@@ -161,6 +161,48 @@ Each session has its own namespace — one agent's variables don't affect anothe
 
 ---
 
+## Transitions: what a call did, and whether that was expected (optional)
+
+With [awm](https://github.com/Aitherium/awm) installed and an awm scope named in the
+environment, every `execute()` is also one observed transition in awm's world model:
+the session asks awm what this action does from this state *before* running it, and
+records what happened afterwards.
+
+```python
+first = session.execute("1/0")
+first.prediction   # {"source": "NONE", ...}            never seen: no expectation
+second = session.execute("1/0")
+second.prediction  # {"source": "RECALLED", "outcome": "error:ZeroDivisionError", ...}
+second.surprise    # 0.0 -- it did what the table said it would
+second.transition  # {"action": "py:k=Expr|i=|c=|s=xs", "outcome": "error:ZeroDivisionError",
+                   #  "duration": "<10ms", "recorded": True}
+```
+
+| | what is stored |
+|---|---|
+| state | a digest of the sorted (variable name, type name) pairs, the distinct type names (max 12), a bucket of the prior call count (`0-9`, `10-99`, `100+`), whether the worker was just restarted |
+| action | the code's AST shape: top-level statement kinds, imported top-level modules, called function / attribute names (max 20 each), a size bucket; `py:syntax-error` for code that does not parse |
+| outcome | `ok`, `error:<ExceptionClassName>`, `timeout` or `error:WorkerDied`, and a duration bucket |
+| never | code text, variable values, variable names, exception messages, stdout, stderr |
+
+| variable | default | meaning |
+|---|---|---|
+| `AWREPL_RECORD_TRANSITIONS` | `1` | `0` turns recording off: requests, results and files are exactly what they were without this feature |
+| `AITHER_AGENT_WM_AWM_SCOPE` | unset | the awm scope template (`tenant:user:{agent}`), the one adk's awm backend reads. Unset, or without `{agent}`: nothing is recorded — a scope is never invented |
+| `AWREPL_TRANSITIONS_AGENT` | `awrepl` | what `{agent}` becomes, so REPL transitions sit beside an agent's own rows, not among them |
+| `AITHER_AGENT_WM_AWM_DB` | `<AITHER_AGENT_WM_DIR or ~/.aither/wm>/awm_world.db` | the awm file (never migrated from here) |
+| `AWREPL_TRANSITIONS_BUDGET_MS` | `250` | the longest a call waits on awm, before and after it runs |
+
+awm stays optional: without it, with an older one, or with a store that raises or
+stalls, `execute()` returns what it always returned, the three fields stay `None`,
+and after three failures in a row recording switches itself off for the process with
+one warning. `awrepl.transitions.status()` says whether it records and why not.
+
+The action is deliberately coarse: `x = 1` and `y = 1 / x` are the same action
+(one assignment, no calls). It tells kinds of code apart, not programs.
+
+---
+
 ## CLI
 
 ```bash

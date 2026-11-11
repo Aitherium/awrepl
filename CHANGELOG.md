@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Every `execute()` can be recorded as an observed transition in an
+  [awm](https://github.com/Aitherium/awm) world model (`awrepl/transitions.py`):
+  a value-free state digest, an action token derived from the code's AST shape,
+  and `ok` / `error:<Class>` / `timeout` plus a duration bucket. awm's prediction
+  (asked before the call) and the surprise are exposed as three additive
+  `ExecResult` fields: `prediction`, `surprise`, `transition` (kept out of `repr`
+  and `==`). No code text, value, variable name, message or output is stored.
+- awm is optional and recording never fails or holds a call: one daemon thread, a
+  250 ms budget per awm call, off for the process after three failures in a row.
+- `AWREPL_RECORD_TRANSITIONS` (default `1`; `0` = the exact previous behaviour).
+  Records only where `AITHER_AGENT_WM_AWM_SCOPE` names an awm scope template;
+  `{agent}` is filled from `AWREPL_TRANSITIONS_AGENT` (default `awrepl`).
+- The worker answers an `execute` request carrying `"shape": true` with the
+  namespace's shape (a digest and type names). Requests without it are unchanged.
+
 ## 0.1.1 — 2026-10-05
 
 - Fixed `SessionPool.delete_session`/`close_all` holding the pool lock across

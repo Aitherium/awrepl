@@ -12,9 +12,11 @@ import subprocess
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
+
+from . import transitions as _transitions
 
 
 @dataclass
@@ -29,6 +31,16 @@ class ExecResult:
     duration_ms: float  # wall-clock time for execution
     truncated: bool  # output was truncated due to size limit
     truncated_bytes: int  # how many bytes were dropped
+    # -- additive, set only while transitions are recorded (see transitions.py).
+    # Out of repr and == on purpose: with recording off a result prints and
+    # compares exactly as it did before these existed.
+    #: awm's expectation for this call, asked BEFORE it ran:
+    #: {source: RECALLED|GENERALIZED|PREDICTED|NONE, confidence, support, outcome, duration}
+    prediction: Optional[Dict[str, Any]] = field(default=None, repr=False, compare=False)
+    #: how wrong that expectation was, 0.0-1.0; None when there was none (NONE)
+    surprise: Optional[float] = field(default=None, repr=False, compare=False)
+    #: what was observed: {action, outcome, duration, recorded}
+    transition: Optional[Dict[str, Any]] = field(default=None, repr=False, compare=False)
 
 
 class ReplSession:
@@ -67,6 +79,15 @@ class ReplSession:
         self._closed = False
         #: times a worker was killed for overrunning ``timeout_ms`` (its namespace is gone)
         self.restarts = 0
+        #: the transition recorder, or None (flag off / no awm scope in the
+        #: environment): every recording branch below is then skipped
+        self._recorder: Optional[Any] = _transitions.recorder_from_env()
+        #: prior execute() calls, the last namespace shape the worker reported
+        #: (None = empty) and whether the worker was just replaced: the state
+        #: half of a transition. Touched only under _lock, only when recording.
+        self._calls = 0
+        self._shape: Optional[Dict[str, Any]] = None
+        self._just_restarted = False
         self._start_worker()
 
     def _start_worker(self) -> None:
@@ -125,6 +146,50 @@ class ReplSession:
                     stranded.terminate()
             raise RuntimeError(f"Session {self.session_id} worker is dead")
 
+    def _transition_begin(self, code: str) -> Optional[Tuple[Any, str, Dict[str, str], Any]]:
+        """Ask for a prediction before the call runs. None = not recording. Never raises."""
+        rec = self._recorder
+        if rec is None or rec.disabled is not None:
+            return None
+        try:
+            action = _transitions.action_token(code)
+            before = _transitions.state_slots(self._shape, self._calls, self._just_restarted)
+            return rec, action, before, rec.predict(before, action)
+        except Exception:  # noqa: BLE001 -- recording never fails a call
+            _transitions.logger.debug("awrepl: transition begin failed", exc_info=True)
+            return None
+
+    def _transition_end(self, ticket: Optional[Tuple[Any, str, Dict[str, str], Any]],
+                        result: ExecResult, *, shape: Any = None,
+                        timed_out: bool = False, died: bool = False) -> ExecResult:
+        """Record what happened and annotate ``result``. Returns it. Never raises."""
+        if self._recorder is None:
+            return result
+        try:
+            self._calls += 1
+            if timed_out or died:
+                self._shape, self._just_restarted = None, timed_out
+            else:
+                self._just_restarted = False
+                self._shape = _transitions.clean_shape(shape) or self._shape
+            if ticket is None:
+                return result
+            rec, action, before, pred = ticket
+            outcome = _transitions.outcome_token(
+                result.exception, timed_out=timed_out, died=died)
+            duration = _transitions.duration_bucket(result.duration_ms)
+            after = _transitions.state_slots(self._shape, self._calls, self._just_restarted)
+            after[_transitions.OUTCOME_SLOT] = outcome
+            after[_transitions.DURATION_SLOT] = duration
+            done = rec.observe(before, action, after, pred)
+            result.prediction = _transitions.describe_prediction(pred)
+            result.surprise = getattr(done, "surprise", None)
+            result.transition = {"action": action, "outcome": outcome,
+                                 "duration": duration, "recorded": done is not None}
+        except Exception:  # noqa: BLE001 -- recording never fails a call
+            _transitions.logger.debug("awrepl: transition end failed", exc_info=True)
+        return result
+
     def execute(self, code: str, timeout_ms: Optional[int] = None) -> ExecResult:
         """
         Execute Python code in the persistent namespace.
@@ -160,6 +225,12 @@ class ReplSession:
                 "timeout_ms": timeout_ms,
                 "max_output_bytes": self.max_output_bytes,
             }
+            # the prediction is asked for before the code runs, and the worker is
+            # asked for its namespace shape only when someone will record it:
+            # with recording off the request is byte-for-byte what it always was
+            ticket = self._transition_begin(code)
+            if ticket is not None:
+                request["shape"] = True
 
             start_time = time.time()
 
@@ -185,7 +256,7 @@ class ReplSession:
                 except TimeoutError:
                     self._kill_and_restart()
                     elapsed_ms = (time.time() - start_time) * 1000
-                    return ExecResult(
+                    return self._transition_end(ticket, ExecResult(
                         stdout="",
                         stderr="",
                         value=None,
@@ -197,7 +268,7 @@ class ReplSession:
                         duration_ms=elapsed_ms,
                         truncated=False,
                         truncated_bytes=0,
-                    )
+                    ), timed_out=True)
                 elapsed_ms = (time.time() - start_time) * 1000
 
                 if not response_line:
@@ -205,7 +276,7 @@ class ReplSession:
 
                 response = json.loads(response_line)
 
-                return ExecResult(
+                return self._transition_end(ticket, ExecResult(
                     stdout=response.get("stdout", ""),
                     stderr=response.get("stderr", ""),
                     value=response.get("value"),
@@ -214,11 +285,20 @@ class ReplSession:
                     duration_ms=elapsed_ms,
                     truncated=response.get("truncated", False),
                     truncated_bytes=response.get("truncated_bytes", 0),
-                )
+                ), shape=response.get("shape"))
+
+            except RuntimeError:
+                # the worker died under this call (os._exit, a crash): that is an
+                # outcome worth remembering. A close() racing the call is not one.
+                if not self._closed:
+                    self._transition_end(ticket, ExecResult(
+                        "", "", None, None, "", (time.time() - start_time) * 1000, False, 0,
+                    ), died=True)
+                raise
 
             except json.JSONDecodeError as e:
                 elapsed_ms = (time.time() - start_time) * 1000
-                return ExecResult(
+                return self._transition_end(ticket, ExecResult(
                     stdout="",
                     stderr="",
                     value=None,
@@ -227,7 +307,7 @@ class ReplSession:
                     duration_ms=elapsed_ms,
                     truncated=False,
                     truncated_bytes=0,
-                )
+                ))
 
     def variables(self) -> Dict[str, str]:
         """
@@ -339,6 +419,7 @@ class ReplSession:
                     raise RuntimeError("Worker subprocess closed unexpectedly")
 
                 json.loads(response_line)  # Validate response
+                self._shape = None  # the namespace is empty again
 
             except json.JSONDecodeError:
                 pass

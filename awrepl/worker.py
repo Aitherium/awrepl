@@ -85,6 +85,25 @@ class PersistentNamespace:
 
         return result
 
+    def shape(self) -> Dict[str, Any]:
+        """The namespace's shape, with no value and no name in it.
+
+        ``sig`` digests the sorted (name, type name) pairs; ``types`` is the sorted
+        distinct type names (capped). Sent only when the session asks for it.
+        """
+        import hashlib
+
+        pairs = sorted(
+            (name, type(value).__name__)
+            for name, value in self.namespace.items()
+            if isinstance(name, str) and not name.startswith("__")
+        )
+        digest = hashlib.sha256(
+            "\x00".join(f"{name}\x1f{kind}" for name, kind in pairs).encode("utf-8", "replace")
+        ).hexdigest()[:16]
+        types = sorted({kind for _, kind in pairs})
+        return {"sig": digest, "types": types[:12], "more": len(types) > 12}
+
     def get_variables(self) -> Dict[str, str]:
         """Return dict of {name: type_and_repr} for all bound variables."""
         variables = {}
@@ -155,6 +174,11 @@ def main() -> None:
                     timeout_ms = request.get("timeout_ms", 30000)
                     max_output_bytes = request.get("max_output_bytes", 65536)
                     result = ns.execute(code, timeout_ms, max_output_bytes)
+                    if request.get("shape"):
+                        try:
+                            result["shape"] = ns.shape()
+                        except Exception:
+                            result["shape"] = None
                     sys.stdout.write(json.dumps(result) + "\n")
                     sys.stdout.flush()
 
