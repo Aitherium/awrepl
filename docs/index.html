@@ -538,6 +538,90 @@ pool.close_all()
 </code></pre>
 <p>Each session has its own namespace — one agent's variables don't affect another.</p>
 <hr />
+<h2>Transitions: what a call did, and whether that was expected (optional)</h2>
+<p>With <a href="https://github.com/Aitherium/awm">awm</a> installed and an awm scope named in the
+environment, every <code>execute()</code> is also one observed transition in awm's world model:
+the session asks awm what this action does from this state <em>before</em> running it, and
+records what happened afterwards.</p>
+
+<pre><code>```python
+first = session.execute(&quot;1/0&quot;)
+first.prediction   # {&quot;source&quot;: &quot;NONE&quot;, ...}            never seen: no expectation
+second = session.execute(&quot;1/0&quot;)
+second.prediction  # {&quot;source&quot;: &quot;RECALLED&quot;, &quot;outcome&quot;: &quot;error:ZeroDivisionError&quot;, ...}
+second.surprise    # 0.0 -- it did what the table said it would
+second.transition  # {&quot;action&quot;: &quot;py:k=Expr|i=|c=|s=xs&quot;, &quot;outcome&quot;: &quot;error:ZeroDivisionError&quot;,
+                   #  &quot;duration&quot;: &quot;&lt;10ms&quot;, &quot;recorded&quot;: True}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>what is stored</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>state</td>
+<td>a digest of the sorted (variable name, type name) pairs, the distinct type names (max 12), a bucket of the prior call count (<code>0-9</code>, <code>10-99</code>, <code>100+</code>), whether the worker was just restarted</td>
+</tr>
+<tr>
+<td>action</td>
+<td>the code's AST shape: top-level statement kinds, imported top-level modules, called function / attribute names (max 20 each), a size bucket; <code>py:syntax-error</code> for code that does not parse</td>
+</tr>
+<tr>
+<td>outcome</td>
+<td><code>ok</code>, <code>error:&lt;ExceptionClassName&gt;</code>, <code>timeout</code> or <code>error:WorkerDied</code>, and a duration bucket</td>
+</tr>
+<tr>
+<td>never</td>
+<td>code text, variable values, variable names, exception messages, stdout, stderr</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>variable</th>
+<th>default</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AWREPL_RECORD_TRANSITIONS</code></td>
+<td><code>1</code></td>
+<td><code>0</code> turns recording off: requests, results and files are exactly what they were without this feature</td>
+</tr>
+<tr>
+<td><code>AITHER_AGENT_WM_AWM_SCOPE</code></td>
+<td>unset</td>
+<td>the awm scope template (<code>tenant:user:{agent}</code>), the one adk's awm backend reads. Unset, or without <code>{agent}</code>: nothing is recorded — a scope is never invented</td>
+</tr>
+<tr>
+<td><code>AWREPL_TRANSITIONS_AGENT</code></td>
+<td><code>awrepl</code></td>
+<td>what <code>{agent}</code> becomes, so REPL transitions sit beside an agent's own rows, not among them</td>
+</tr>
+<tr>
+<td><code>AITHER_AGENT_WM_AWM_DB</code></td>
+<td><code>&lt;AITHER_AGENT_WM_DIR or ~/.aither/wm&gt;/awm_world.db</code></td>
+<td>the awm file (never migrated from here)</td>
+</tr>
+<tr>
+<td><code>AWREPL_TRANSITIONS_BUDGET_MS</code></td>
+<td><code>250</code></td>
+<td>the longest a call waits on awm, before and after it runs</td>
+</tr>
+</tbody>
+</table>
+<p>awm stays optional: without it, with an older one, or with a store that raises or
+stalls, <code>execute()</code> returns what it always returned, the three fields stay <code>None</code>,
+and after three failures in a row recording switches itself off for the process with
+one warning. <code>awrepl.transitions.status()</code> says whether it records and why not.</p>
+<p>The action is deliberately coarse: <code>x = 1</code> and <code>y = 1 / x</code> are the same action
+(one assignment, no calls). It tells kinds of code apart, not programs.</p>
+<hr />
 <h2>CLI</h2>
 
 <pre><code>```bash
