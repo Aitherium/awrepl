@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2] - 2026-11-24
+
+### Added
+
+- **awrepl**: ship __main__.py so python -m awrepl is a way in (f46247f818)
+
 ## Unreleased
 
 - Every `execute()` can be recorded as an observed transition in an
